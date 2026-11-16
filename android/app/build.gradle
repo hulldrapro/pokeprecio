@@ -9,7 +9,8 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         // el workflow pasa -PversionCode=<número de compilación>: cada APK nuevo es "más nuevo" que el instalado
         versionCode((project.findProperty('versionCode') ?: '1').toInteger())
-        versionName "1.${project.findProperty('versionCode') ?: '0'}"
+        // versión visible (la de package.json): CardCalc v2.1.0
+        versionName((project.findProperty('versionName') ?: "1.${project.findProperty('versionCode') ?: '0'}").toString())
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

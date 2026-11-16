@@ -703,13 +703,15 @@ let modoColeccion = 'cartas'; // 'cartas' | 'sets' (progreso por set)
 const claveCopia = (c) => `${c.id}|${c.variante || ''}|${c.idioma || 'es'}`;
 // tipos de las cartas japonesas → nombre en español, para filtrar todo junto
 const TIPO_JA = {
-  草: 'Planta', 炎: 'Fuego', 水: 'Agua', 雷: 'Rayo', 超: 'Psíquico', 闘: 'Lucha', 悪: 'Oscura', 鋼: 'Metálica', ドラゴン: 'Dragón', フェアリー: 'Hada', 無色: 'Incolora', トレーナーズ: 'Entrenador', エネルギー: 'Energía',
+  草: 'Planta', 炎: 'Fuego', 水: 'Agua', 雷: 'Eléctrico', 超: 'Psíquico', 闘: 'Lucha', 悪: 'Siniestro', 鋼: 'Metal', ドラゴン: 'Dragón', フェアリー: 'Hada', 無色: 'Normal', トレーナーズ: 'Entrenador', エネルギー: 'Energía',
   // las cartas en inglés (y algunas japonesas) traen el tipo en inglés
-  Grass: 'Planta', Fire: 'Fuego', Water: 'Agua', Lightning: 'Rayo', Psychic: 'Psíquico', Fighting: 'Lucha', Darkness: 'Oscura', Metal: 'Metálica', Dragon: 'Dragón', Fairy: 'Hada', Colorless: 'Incolora', Trainer: 'Entrenador', Energy: 'Energía',
+  Grass: 'Planta', Fire: 'Fuego', Water: 'Agua', Lightning: 'Eléctrico', Psychic: 'Psíquico', Fighting: 'Lucha', Darkness: 'Siniestro', Metal: 'Metal', Dragon: 'Dragón', Fairy: 'Hada', Colorless: 'Normal',
+  // nombres de TCGdex en español → los que usa la comunidad
+  Rayo: 'Eléctrico', Oscura: 'Siniestro', Metálica: 'Metal', Incolora: 'Normal', Trainer: 'Entrenador', Energy: 'Energía',
 };
 
 /* Tipo de la carta: el tipo del Pokémon (Fuego, Agua…) o la categoría (Entrenador, Energía) */
-const TIPO_ICONO = { Fuego: '🔥', Agua: '💧', Planta: '🌿', Rayo: '⚡','Psíquico': '🔮', Lucha: '👊', Oscura: '🌑', Metálica: '⚙️', Dragón: '🐉', Hada: '🧚', Incolora: '⚪', Entrenador: '🎒', Energía: '✴️' };
+const TIPO_ICONO = { Fuego: '🔥', Agua: '💧', Planta: '🌿', Eléctrico: '⚡', Psíquico: '🔮', Lucha: '👊', Siniestro: '🌑', Metal: '⚙️', Dragón: '🐉', Hada: '🧚', Normal: '⚪', Entrenador: '🎒', Energía: '✴️' };
 function tiposDe(c) {
   const norm = (t) => TIPO_JA[t] || t;
   if (c.types && c.types.length) return c.types.map(norm);
@@ -911,6 +913,11 @@ if (nativo && window.Capacitor.Plugins.App) {
 $('#btn-exportar').addEventListener('click', exportarColeccion);
 $('#btn-importar').addEventListener('click', () => $('#input-importar').click());
 $('#input-importar').addEventListener('change', importarColeccion);
+
+// versión instalada (Android la da el plugin App: versionName + número de compilación)
+if (nativo && window.Capacitor.Plugins.App) {
+  window.Capacitor.Plugins.App.getInfo().then((i) => { $('#version-app').textContent = `CardCalc v${i.version} (compilación ${i.build})`; }).catch(() => {});
+} else $('#version-app').textContent = 'CardCalc · versión web (PC)';
 
 getTasas().then(pintarDolar);
 getSets().catch(() => {});

@@ -280,7 +280,7 @@ async function pintarSets() {
     <button class="set-item" data-i="${i}">
       <div class="set-cab">
         ${g.logo ? `<img src="${esc(g.logo)}.webp" alt="" onerror="this.remove()">` : ''}
-        <div><b>${esc(g.nombre)}</b> ${bandera(g.idioma)}<br><span class="meta">${g.n} carta${g.n === 1 ? '' : 's'} · ${fmtUSD(g.valor)} (${fmtCOP(g.valor * tasas.COP)})</span></div>
+        <div><b>${esc(g.nombre)}</b><br><span class="meta">${g.n} carta${g.n === 1 ? '' : 's'} · ${fmtUSD(g.valor)} (${fmtCOP(g.valor * tasas.COP)})</span></div>
         <span class="set-pct">${g.oficial ? `${Math.floor(g.pct)}%` : ''}</span>
       </div>
       <div class="progreso"><div style="width:${Math.min(100, g.pct)}%"></div></div>
@@ -299,7 +299,7 @@ async function abrirSet(g, soloFaltan = false) {
     cuerpo.innerHTML = `
       <div class="carta">
         ${g.logo ? `<img class="logo-set" src="${esc(g.logo)}.webp" alt="" onerror="this.remove()">` : ''}
-        <h2>${esc(nombreSet({ setId: g.setId, set: set.name, idioma: g.idioma }))} ${bandera(g.idioma)}</h2>
+        <h2>${esc(nombreSet({ setId: g.setId, set: set.name, idioma: g.idioma }))}</h2>
         <div class="progreso"><div style="width:${Math.min(100, g.pct)}%"></div></div>
         <p class="meta">Tienes ${g.tengo} de ${g.oficial} (${Math.floor(g.pct)}%) · ${(set.cards || []).length - [...tengo].length} te faltan en total (incluye secretas)</p>
         <div class="segmento"><button data-f="todas" class="${soloFaltan ? '' : 'sel'}">Todas</button><button data-f="faltan" class="${soloFaltan ? 'sel' : ''}">Solo me faltan</button></div>

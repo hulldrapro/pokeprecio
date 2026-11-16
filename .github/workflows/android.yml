@@ -44,6 +44,9 @@ jobs:
             echo "::warning::Sin secreto KEYSTORE_B64: APK de depuración con llave temporal (no se podrá actualizar encima)"
           fi
 
+      - name: Versión (de package.json)
+        run: echo "VERSION=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+
       - name: Compilar APK
         working-directory: android
         env:
@@ -52,14 +55,14 @@ jobs:
         run: |
           chmod +x gradlew
           if [ -n "$KEYSTORE_FILE" ]; then
-            ./gradlew assembleRelease --no-daemon -PversionCode=${{ github.run_number }}
-            cp app/build/outputs/apk/release/app-release.apk ../PokePrecio.apk
+            ./gradlew assembleRelease --no-daemon -PversionCode=${{ github.run_number }} -PversionName=$VERSION
+            cp app/build/outputs/apk/release/app-release.apk "../CardCalc-v$VERSION.apk"
           else
-            ./gradlew assembleDebug --no-daemon -PversionCode=${{ github.run_number }}
-            cp app/build/outputs/apk/debug/app-debug.apk ../PokePrecio.apk
+            ./gradlew assembleDebug --no-daemon -PversionCode=${{ github.run_number }} -PversionName=$VERSION
+            cp app/build/outputs/apk/debug/app-debug.apk "../CardCalc-v$VERSION.apk"
           fi
 
       - uses: actions/upload-artifact@v5
         with:
-          name: PokePrecio-apk
-          path: PokePrecio.apk
+          name: CardCalc-apk
+          path: CardCalc-v*.apk
