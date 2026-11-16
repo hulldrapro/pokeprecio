@@ -733,7 +733,13 @@ $('#btn-limpiar-sesion').addEventListener('click', () => {
 });
 $('#input-foto').addEventListener('change', desdeInput);
 $('#input-galeria').addEventListener('change', desdeInput);
-$('#form-buscar').addEventListener('submit', (e) => { e.preventDefault(); busquedaManual($('#txt-buscar').value); $('#txt-buscar').blur(); });
+// de corrido también a mano: Enter busca, la casilla se vacía y el teclado sigue abierto para el siguiente número
+$('#form-buscar').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const t = $('#txt-buscar'); const q = t.value.trim(); if (!q) return;
+  busquedaManual(q);
+  t.value = ''; t.placeholder = `Última: ${q} · escribe la siguiente`; t.focus();
+});
 $('#mini-wrap').addEventListener('click', (e) => {
   const r = $('#mini').getBoundingClientRect();
   leerToque((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height);
