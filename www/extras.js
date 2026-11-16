@@ -53,7 +53,7 @@ function elegirCarta(titulo) {
         $('#buscador-estado', cuerpo).textContent = cartas.length ? `${cartas.length} resultado${cartas.length === 1 ? '' : 's'}: toca la carta` : 'Sin resultados';
         $('#buscador-res', cuerpo).innerHTML = cartas.map((c, i) => `
           <button class="cand" data-i="${i}"><img loading="lazy" src="${esc(imgCarta(c))}" alt="">
-            <div class="n">${esc(c.name)}</div><div class="s">${esc(c.set ? c.set.name : c.id)} · ${esc(c.localId)}</div></button>`).join('');
+            <div class="n">${esc(c.name)}</div><div class="s">${esc(nombreSet(c) || c.id)} · ${esc(c.localId)}</div></button>`).join('');
         $$('#buscador-res .cand', cuerpo).forEach((b) => b.addEventListener('click', async () => {
           $('#buscador-estado', cuerpo).innerHTML = '<span class="cargando">Consultando precio</span>';
           try { const carta = await cartaCompleta(cartas[+b.dataset.i], idioma); terminar(carta); cerrarModal(); } catch (er) { $('#buscador-estado', cuerpo).textContent = `Error: ${er.message}`; }
@@ -98,7 +98,7 @@ async function pintarIntercambio() {
     $(`#total-${lado}`).textContent = `${c[lado].length} · ${fmtUSD(suma(c[lado]))}`;
     $(`#lista-${lado}`).innerHTML = c[lado].length ? c[lado].map((x) => `
       <li><img src="${esc(imgCarta(x))}" alt="">
-        <div class="info"><b>${bandera(x.idioma)} ${esc(x.name)}</b><span class="meta">${esc(x.set)} · ${esc(x.localId)}${x.uidCol ? ' · de tu colección' : ''}</span></div>
+        <div class="info"><b>${bandera(x.idioma)} ${esc(x.name)}</b><span class="meta">${esc(nombreSet(x))} · ${esc(x.localId)}${x.uidCol ? ' · de tu colección' : ''}</span></div>
         <div class="valor"><b>${fmtUSD(x.usd)}</b><br><span class="meta">${x.usd != null ? fmtCOP(x.usd * tasas.COP) : ''}</span></div>
         <button class="quitar" data-lado="${lado}" data-key="${esc(x.key)}" aria-label="Quitar">✕</button></li>`).join('')
       : '<li class="vacio-lado">Sin cartas</li>';
@@ -150,7 +150,7 @@ async function confirmarCambio() {
 
 async function compartirCambio() {
   const c = leerCambio(); const tasas = await getTasas();
-  const linea = (x) => `• ${x.name} (${x.set} ${x.localId}) ${bandera(x.idioma)} — ${fmtUSD(x.usd)} / ${fmtCOP((x.usd || 0) * tasas.COP)}`;
+  const linea = (x) => `• ${x.name} (${nombreSet(x)} ${x.localId}) ${bandera(x.idioma)} — ${fmtUSD(x.usd)} / ${fmtCOP((x.usd || 0) * tasas.COP)}`;
   const s = (l) => l.reduce((a, x) => a + (x.usd || 0), 0);
   const texto = `⇄ Intercambio (CardCalc)\n\n📤 Doy (${fmtUSD(s(c.doy))}):\n${c.doy.map(linea).join('\n') || '—'}\n\n📥 Recibo (${fmtUSD(s(c.recibo))}):\n${c.recibo.map(linea).join('\n') || '—'}\n\nDiferencia: ${fmtUSD(s(c.recibo) - s(c.doy))}`;
   compartirTexto('Intercambio', texto);
@@ -190,7 +190,7 @@ async function pintarDeseos() {
     const ok = alcanzado(d, tasas); const actualCOP = d.usd != null ? d.usd * tasas.COP : null;
     return `<li class="${ok ? 'listo' : ''}" data-key="${esc(d.key)}">
       <img src="${esc(imgCarta(d))}" alt="" data-ver>
-      <div class="info" data-ver><b>${bandera(d.idioma)} ${esc(d.name)}</b><span class="meta">${esc(d.set)} · ${esc(d.localId)}</span>
+      <div class="info" data-ver><b>${bandera(d.idioma)} ${esc(d.name)}</b><span class="meta">${esc(nombreSet(d))} · ${esc(d.localId)}</span>
         <span class="meta">Hoy: <b>${actualCOP != null ? fmtCOP(actualCOP) : '—'}</b> · Tu precio: ${d.objetivoCOP ? fmtCOP(d.objetivoCOP) : 'sin definir'}</span>
         ${ok ? '<span class="chip-ok">🎯 ¡Ya está a tu precio!</span>' : d.objetivoCOP && actualCOP != null ? `<span class="meta">Falta que baje ${fmtCOP(actualCOP - d.objetivoCOP)}</span>` : ''}
       </div>
@@ -260,7 +260,7 @@ async function pintarSets() {
     for (const g of lista.filter((x) => x.idioma === l)) {
       const s = sets.find((x) => x.id === g.setId);
       g.oficial = s?.cardCount?.official || s?.cardCount?.total || 0;
-      g.logo = s?.logo || null; g.nombre = s?.name || g.nombre;
+      g.logo = s?.logo || null; g.nombre = nombreSet({ setId: g.setId, set: s?.name || g.nombre, idioma: g.idioma });
       g.tengo = [...g.nums].filter((n) => /^\d+$/.test(n) && +n <= g.oficial).length;
       g.pct = g.oficial ? g.tengo / g.oficial * 100 : 0;
     }
@@ -290,7 +290,7 @@ async function abrirSet(g, soloFaltan = false) {
     const cartas = (set.cards || []).filter((c) => !soloFaltan || !tengo.has(c.id));
     cuerpo.innerHTML = `
       <div class="carta">
-        <h2>${esc(set.name)} ${bandera(g.idioma)}</h2>
+        <h2>${esc(nombreSet({ setId: g.setId, set: set.name, idioma: g.idioma }))} ${bandera(g.idioma)}</h2>
         <div class="progreso"><div style="width:${Math.min(100, g.pct)}%"></div></div>
         <p class="meta">Tienes ${g.tengo} de ${g.oficial} (${Math.floor(g.pct)}%) · ${(set.cards || []).length - [...tengo].length} te faltan en total (incluye secretas)</p>
         <div class="segmento"><button data-f="todas" class="${soloFaltan ? '' : 'sel'}">Todas</button><button data-f="faltan" class="${soloFaltan ? 'sel' : ''}">Solo me faltan</button></div>
@@ -326,7 +326,7 @@ async function compartirRepetidas() {
   for (const c of col) { const k = claveCopia(c); g.set(k, { c, n: (g.get(k)?.n || 0) + 1 }); }
   const rep = [...g.values()].filter((x) => x.n > 1).sort((a, b) => (b.c.usd || 0) - (a.c.usd || 0));
   if (!rep.length) return alert('No tienes cartas repetidas.');
-  const texto = `🔁 Mis cartas repetidas para cambiar (CardCalc)\n\n${rep.map(({ c, n }) => `• ${c.name} ${bandera(c.idioma)} (${c.set} ${c.num || c.localId}) ×${n - 1} — ${fmtUSD(c.usd)} / ${fmtCOP((c.usd || 0) * tasas.COP)} c/u`).join('\n')}\n\n¿Te interesa alguna? 😄`;
+  const texto = `🔁 Mis cartas repetidas para cambiar (CardCalc)\n\n${rep.map(({ c, n }) => `• ${c.name} ${bandera(c.idioma)} (${nombreSet(c)} ${c.num || c.localId}) ×${n - 1} — ${fmtUSD(c.usd)} / ${fmtCOP((c.usd || 0) * tasas.COP)} c/u`).join('\n')}\n\n¿Te interesa alguna? 😄`;
   compartirTexto('Mis repetidas', texto);
 }
 

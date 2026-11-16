@@ -114,6 +114,18 @@ function getSets(l = idioma) {
   }
   return setsP[l];
 }
+/* Nombres de los sets: siempre el ORIGINAL en inglés ("Phantasmal Flames", no "Fuegos Fantasmales").
+   Español e inglés comparten el id del set; los sets japoneses conservan su nombre japonés (que es el original). */
+let NOMBRES_EN = (() => { const c = leer('sets-en', null); return c ? Object.fromEntries(c.d.map((s) => [s.id, s.name])) : {}; })();
+getSets('en').then((s) => { NOMBRES_EN = Object.fromEntries(s.map((x) => [x.id, x.name])); }).catch(() => {});
+function nombreSet(x, lang) {
+  if (!x) return '';
+  const id = x.setId || (x.set && typeof x.set === 'object' && x.set.id) || (x.id ? x.id.slice(0, x.id.lastIndexOf('-')) : '');
+  const l = lang || x._lang || x.idioma || 'es';
+  const original = typeof x.set === 'string' ? x.set : (x.set && x.set.name) || '';
+  return l !== 'ja' && NOMBRES_EN[id] ? NOMBRES_EN[id] : original;
+}
+
 // código impreso → set. Español e inglés comparten sets (codigos.json); en japonés el código impreso ES el id del set (SV6, SV2a…)
 let codigosP = null;
 async function getCodigos(l = idioma) {
@@ -328,7 +340,7 @@ async function pintarSesion(nueva) {
   $('#lista-sesion').innerHTML = sesion.map((e, i) => `
     <li class="${e === nueva ? 'nueva' : ''}" data-i="${i}">
       <img src="${esc(imgCarta(e.carta))}" alt="" data-ver>
-      <div class="info" data-ver><b>${bandera(e.carta._lang)} ${esc(e.carta.name)}</b><span class="meta">${esc(e.carta.set?.name || '')} · ${esc(e.carta.localId)}</span></div>
+      <div class="info" data-ver><b>${bandera(e.carta._lang)} ${esc(e.carta.name)}</b><span class="meta">${esc(nombreSet(e.carta))} · ${esc(e.carta.localId)}</span></div>
       <div class="valor"><b>${fmtUSD(e.p.usd)}</b><br><span class="meta">${e.p.usd != null ? fmtCOP(e.p.usd * tasas.COP) : ''}</span></div>
       <button class="mas" data-mas ${e.uidCol ? 'disabled aria-label="Guardada"' : 'aria-label="Guardar en mi colección"'}>${e.uidCol ? '✓' : '＋'}</button>
     </li>`).join('');
@@ -424,7 +436,7 @@ async function resolver(res, id, sets, codigos, lang = idioma) {
   seguroActual = seguro;
   $('#ayuda-toque').hidden = false;
   cartas.forEach((c) => { c._lang = lang; });
-  estado((res.aviso ? `<div class="meta">${res.aviso}</div>` : '') + (seguro ? `✅ <b>${esc(cartas[0].name)}</b> ${bandera(lang)} · ${esc(cartas[0].set?.name || '')}`
+  estado((res.aviso ? `<div class="meta">${res.aviso}</div>` : '') + (seguro ? `✅ <b>${esc(cartas[0].name)}</b> ${bandera(lang)} · ${esc(nombreSet(cartas[0], lang))}`
     : `Encontré ${cartas.length} posibles. La más probable está marcada; si no es, toca la tuya (fíjate en el símbolo del set).`));
   mostrarCandidatos(cartas, seguro ? 'Otras coincidencias' : '¿Cuál es tu carta?', 0);
   abrirCarta(cartas[0], $('#detalle'), null, { escaneo: true });
@@ -524,7 +536,7 @@ function mostrarCandidatos(cartas, titulo, sel = -1) {
     <button class="cand${i === sel ? ' sel' : ''}" data-i="${i}">
       <img loading="lazy" src="${esc(imgCarta(c))}" alt="">
       <div class="n">${esc(c.name)}</div>
-      <div class="s">${esc(c.set ? c.set.name : c.id)} · ${esc(c.localId)}</div>
+      <div class="s">${esc(nombreSet(c) || c.id)} · ${esc(c.localId)}</div>
     </button>`).join('');
   $$('.cand', cont).forEach((b) => b.addEventListener('click', () => {
     $$('.cand', cont).forEach((x) => x.classList.toggle('sel', x === b));
@@ -545,7 +557,7 @@ async function abrirCarta(c, destino, item = null, opts = {}) {
     let entrada = null;
     if (opts.escaneo && id === busquedaId) {
       const p = precioUSD(carta, tasas, null, lang);
-      if (opts.elegida || !seguroActual) estado(`✅ <b>${esc(carta.name)}</b> ${bandera(lang)} · ${esc(carta.set?.name || '')}`);
+      if (opts.elegida || !seguroActual) estado(`✅ <b>${esc(carta.name)}</b> ${bandera(lang)} · ${esc(nombreSet(carta, lang))}`);
       precioRapido(carta, p, tasas);
       entrada = registrarEscaneo(carta, p, opts.elegida);
     } else if (opts.soloVer) entrada = sesion.find((e) => e.carta.id === carta.id) || null;
@@ -592,7 +604,7 @@ function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
       <div style="min-width:0">
         <h2>${esc(carta.name)}</h2>
         <div class="meta">
-          ${set.symbol ? `<img class="simbolo" src="${esc(set.symbol)}.webp" alt="" onerror="this.remove()">` : ''}${esc(set.name || '')}<br>
+          ${set.symbol ? `<img class="simbolo" src="${esc(set.symbol)}.webp" alt="" onerror="this.remove()">` : ''}${esc(nombreSet(carta))}<br>
           Nº ${esc(carta.localId)}/${esc(oficial)} · ${bandera(carta._lang)} ${esc(IDIOMAS[carta._lang || 'es'].nombre)}
         </div>
         ${carta.rarity ? `<span class="chip-rareza">${esc(carta.rarity)}</span>` : ''}
@@ -726,7 +738,7 @@ async function pintarColeccion() {
   $('#lista-coleccion').className = 'rejilla';
 
   // opciones de set y rareza según lo que hay
-  const sets = [...new Map(col.map((c) => [c.setId || c.set, c.set])).entries()].sort((a, b) => String(a[1]).localeCompare(b[1]));
+  const sets = [...new Map(col.map((c) => [c.setId || c.set, nombreSet(c)])).entries()].sort((a, b) => String(a[1]).localeCompare(b[1]));
   $('#col-set').innerHTML = '<option value="">Todos los sets</option>' + sets.map(([k, n]) => `<option value="${esc(k)}"${k === filtro.set ? ' selected' : ''}>${esc(n)}</option>`).join('');
   $('#col-orden').value = filtro.orden;
   $('#col-rareza').innerHTML = GRUPOS_RAREZA.map(([n], i) => `<button data-g="${i}" class="${i === filtro.grupo ? 'sel' : ''}">${esc(n)}</button>`).join('');
@@ -746,7 +758,7 @@ async function pintarColeccion() {
   const q = sinTildes(filtro.texto.trim());
   const [, gMin, gMax] = GRUPOS_RAREZA[filtro.grupo];
   let lista = col.filter((c) =>
-    (!q || sinTildes(`${c.name} ${c.set} ${c.num}`).includes(q)) &&
+    (!q || sinTildes(`${c.name} ${c.set} ${nombreSet(c)} ${c.num}`).includes(q)) &&
     (!filtro.set || (c.setId || c.set) === filtro.set) &&
     (!filtro.tipo || tiposDe(c).includes(filtro.tipo)) &&
     (!filtro.idioma || (c.idioma || 'es') === filtro.idioma) &&
@@ -780,7 +792,7 @@ async function pintarColeccion() {
         <span class="idioma-chip" title="${esc(IDIOMAS[c.idioma || 'es'].nombre)}">${bandera(c.idioma)} ${IDIOMAS[c.idioma || 'es'].corto}</span>
       </div>
       <div class="n">${esc(c.name)}</div>
-      <div class="s">${esc(c.rarity || c.set)} · ${esc(c.num)}</div>
+      <div class="s">${esc(c.rarity || nombreSet(c))} · ${esc(c.num)}</div>
       <div class="v"><b>${fmtUSD(c.usd)}${n > 1 ? '<small> c/u</small>' : ''}</b>${badgeCambio(cambioPct(c))}</div>
       <div class="s">${c.usd != null ? fmtCOP(c.usd * n * tasas.COP) + ' COP' + (n > 1 ? ` las ${n}` : '') : ''}</div>
     </button>`).join('');
