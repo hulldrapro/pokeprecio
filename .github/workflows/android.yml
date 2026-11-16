@@ -26,21 +26,40 @@ jobs:
       - name: Dependencias
         run: npm ci
 
-      - name: Copiar OCR y sincronizar Capacitor
+      - name: Copiar OCR, códigos de sets y sincronizar Capacitor
         run: |
           npm run build
+          node scripts/codigos-sets.js
           npx cap sync android
+
+      - name: Llave de firma fija
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/pokeprecio.p12"
+            echo "KEYSTORE_FILE=$RUNNER_TEMP/pokeprecio.p12" >> "$GITHUB_ENV"
+            echo "Firmando con la llave fija (las actualizaciones conservan la colección)"
+          else
+            echo "::warning::Sin secreto KEYSTORE_B64: APK de depuración con llave temporal (no se podrá actualizar encima)"
+          fi
 
       - name: Compilar APK
         working-directory: android
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          if [ -n "$KEYSTORE_FILE" ]; then
+            ./gradlew assembleRelease --no-daemon -PversionCode=${{ github.run_number }}
+            cp app/build/outputs/apk/release/app-release.apk ../PokePrecio.apk
+          else
+            ./gradlew assembleDebug --no-daemon -PversionCode=${{ github.run_number }}
+            cp app/build/outputs/apk/debug/app-debug.apk ../PokePrecio.apk
+          fi
 
-      - name: Renombrar
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk PokePrecio.apk
-
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: PokePrecio-apk
           path: PokePrecio.apk

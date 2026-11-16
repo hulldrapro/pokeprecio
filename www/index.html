@@ -3,54 +3,109 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#14161c">
+  <meta name="theme-color" content="#0f1117">
   <title>PokéPrecio</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>PokéPrecio</h1>
-    <nav>
-      <button class="tab activo" data-vista="escanear">Escanear</button>
-      <button class="tab" data-vista="coleccion">Mi colección</button>
-    </nav>
+  <header class="barra">
+    <div class="marca"><span class="logo" aria-hidden="true"></span>PokéPrecio</div>
+    <div id="dolar" class="dolar"></div>
   </header>
 
   <main>
-    <!-- ESCANEAR -->
+    <!-- ================= ESCANEAR ================= -->
     <section id="vista-escanear" class="vista activa">
-      <div class="acciones">
-        <button id="btn-foto" class="primario">📷 Tomar foto</button>
-        <button id="btn-galeria" class="secundario">🖼️ Galería</button>
-        <input id="input-foto" type="file" accept="image/*" capture="environment" hidden>
-        <input id="input-galeria" type="file" accept="image/*" hidden>
+      <!-- visor en vivo -->
+      <div id="panel-camara">
+        <div class="visor" id="visor">
+          <video id="video" playsinline muted autoplay></video>
+          <div class="marco" id="marco"><span></span><span></span><span></span><span></span></div>
+          <p class="pista" id="pista">Pon la carta dentro del marco · evita reflejos inclinándola un poco</p>
+          <div class="sin-camara" id="sin-camara" hidden>
+            <p>No se pudo abrir la cámara en vivo.</p>
+            <button class="btn secundario" id="btn-reintentar">Reintentar</button>
+          </div>
+        </div>
+        <div class="controles">
+          <button class="btn-redondo" id="btn-galeria" aria-label="Galería">🖼️</button>
+          <button class="disparador" id="btn-capturar" aria-label="Tomar foto"><span></span></button>
+          <button class="btn-redondo" id="btn-foto-nativa" aria-label="Cámara del sistema">📷</button>
+        </div>
+        <form id="form-buscar" class="buscar">
+          <input id="txt-buscar" type="search" placeholder="O escribe: 43 94 · 043094 · Milcery" autocomplete="off" enterkeyhint="search">
+          <button type="submit" class="btn secundario">Buscar</button>
+        </form>
       </div>
-      <p class="ayuda">Encuadra la carta completa, derecha y con buena luz. La app lee el <b>número</b> de abajo (ej. <b>025/198</b>) y el nombre.</p>
 
-      <form id="form-buscar" class="buscar">
-        <input id="txt-buscar" type="search" placeholder="O escribe: 25/198 o Charizard" autocomplete="off">
-        <button type="submit" class="secundario">Buscar</button>
-      </form>
+      <!-- resultado -->
+      <div id="panel-resultado" hidden>
+        <div class="fila-res">
+          <div class="mini" id="mini-wrap">
+            <img id="mini" alt="Tu foto">
+            <span class="punto" id="punto" hidden></span>
+          </div>
+          <div class="res-texto">
+            <div id="estado" class="estado"></div>
+            <p class="ayuda" id="ayuda-toque" hidden>¿No es tu carta? <b>Toca el número</b> en tu foto (abajo, ej. 043/094) y la vuelvo a leer.</p>
+            <button class="btn secundario chico" id="btn-otra">↺ Escanear otra</button>
+          </div>
+        </div>
+        <details id="ocr-detalle" hidden><summary>Texto leído</summary><pre id="ocr-texto"></pre></details>
+        <p id="titulo-cand" class="titulo-sec" hidden></p>
+        <div id="candidatos" class="carrusel"></div>
+        <div id="detalle"></div>
+      </div>
 
-      <div id="estado" class="estado" hidden></div>
-      <img id="vista-previa" class="previa" alt="" hidden>
-      <details id="ocr-detalle" hidden><summary>Texto leído</summary><pre id="ocr-texto"></pre></details>
-
-      <div id="candidatos" class="rejilla"></div>
-      <div id="detalle"></div>
+      <input id="input-foto" type="file" accept="image/*" capture="environment" hidden>
+      <input id="input-galeria" type="file" accept="image/*" hidden>
     </section>
 
-    <!-- COLECCIÓN -->
+    <!-- ================= COLECCIÓN ================= -->
     <section id="vista-coleccion" class="vista">
       <div class="resumen" id="resumen"></div>
-      <div class="acciones">
-        <button id="btn-actualizar" class="secundario">↻ Actualizar precios</button>
+      <div class="filtros">
+        <input id="col-buscar" type="search" placeholder="Buscar en mi colección" autocomplete="off">
+        <div class="fila-filtros">
+          <select id="col-orden" aria-label="Ordenar">
+            <option value="caras">💰 Más caras</option>
+            <option value="raras">✨ Más raras</option>
+            <option value="recientes">🕒 Recientes</option>
+            <option value="suben">📈 Más subieron</option>
+            <option value="bajan">📉 Más bajaron</option>
+            <option value="nombre">🔤 Nombre</option>
+          </select>
+          <select id="col-set" aria-label="Set"><option value="">Todos los sets</option></select>
+        </div>
+        <div class="chips" id="col-rareza"></div>
       </div>
-      <ul id="lista-coleccion" class="lista"></ul>
+      <div id="lista-coleccion" class="rejilla"></div>
+      <div class="respaldo">
+        <p class="titulo-sec">Copia de seguridad</p>
+        <div class="botones">
+          <button id="btn-exportar">⤓ Exportar colección</button>
+          <button id="btn-importar">⤒ Importar copia</button>
+        </div>
+        <input id="input-importar" type="file" accept=".json,application/json" hidden>
+      </div>
     </section>
   </main>
 
+  <nav class="tabbar">
+    <button class="tab activo" data-vista="escanear"><span>📷</span>Escanear</button>
+    <button class="tab" data-vista="coleccion"><span>🗂️</span>Mi colección</button>
+  </nav>
+
+  <!-- detalle de una carta de la colección -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal-caja">
+      <button class="cerrar" id="modal-cerrar" aria-label="Cerrar">✕</button>
+      <div id="modal-cuerpo"></div>
+    </div>
+  </div>
+
   <script src="lib/tesseract.min.js"></script>
+  <script src="reconocer.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

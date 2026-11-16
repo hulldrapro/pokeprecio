@@ -1,35 +1,106 @@
-/* PokéPrecio — foto de una carta Pokémon → OCR (Tesseract, en el celular) → TCGdex (español) → precio USD/COP */
+/* PokéPrecio — foto de una carta Pokémon → OCR en el celular → TCGdex (español) → precio USD/COP en vivo */
 'use strict';
 
 const API = 'https://api.tcgdex.net/v2/es';
 const TASAS_URL = 'https://open.er-api.com/v6/latest/USD';
-const $ = (s) => document.querySelector(s);
+const HORAS_AUTO = 6; // la colección se actualiza sola si pasaron más de estas horas
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const sinTildes = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-const abs = (p) => new URL(p, location.href).href;
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/* ---------- almacenamiento local ---------- */
+/* ================= almacenamiento ================= */
 function leer(clave, def) { try { const v = localStorage.getItem(clave); return v ? JSON.parse(v) : def; } catch { return def; } }
-function guardar(clave, v) { try { localStorage.setItem(clave, JSON.stringify(v)); } catch { /* sin espacio */ } }
-
-async function getJSON(url) {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  return r.json();
+function guardar(clave, v) {
+  try { localStorage.setItem(clave, JSON.stringify(v)); } catch { /* sin espacio */ }
+  if (clave === 'coleccion') espejoNativo(v);
 }
 
-/* ---------- datos con caché ---------- */
-async function getSets() {
-  const c = leer('sets', null);
-  if (c && Date.now() - c.t < 3 * 864e5) return c.d;
-  const d = await getJSON(`${API}/sets`);
-  guardar('sets', { t: Date.now(), d });
-  return d;
+/* La colección también se guarda en el almacenamiento nativo de Android (Preferences), que no se borra
+   al actualizar la app. Al abrir, si el WebView perdió sus datos, se recupera de ahí. */
+const Prefs = () => window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins.Preferences;
+function espejoNativo(col) {
+  const P = Prefs(); if (!P) return;
+  P.set({ key: 'coleccion', value: JSON.stringify(col) }).catch(() => {});
+}
+async function restaurarColeccion() {
+  const P = Prefs(); if (!P) return;
+  try {
+    const { value } = await P.get({ key: 'coleccion' });
+    const nativa = value ? JSON.parse(value) : null;
+    const local = leer('coleccion', null);
+    if (nativa && nativa.length && (!local || !local.length)) localStorage.setItem('coleccion', value); // recuperar
+    else if (local && local.length && !nativa) espejoNativo(local); // primera vez: copiar lo que había
+  } catch { /* sigue con lo local */ }
 }
 
-async function getTasas() {
+/* Copia de seguridad en archivo */
+async function exportarColeccion() {
+  const col = leer('coleccion', []);
+  const json = JSON.stringify({ app: 'PokePrecio', version: 1, fecha: new Date().toISOString(), coleccion: col }, null, 1);
+  const nombre = `PokePrecio-coleccion-${new Date().toISOString().slice(0, 10)}.json`;
+  const FS = nativo && window.Capacitor.Plugins.Filesystem;
+  if (FS) {
+    try {
+      await FS.writeFile({ path: nombre, data: json, directory: 'DOCUMENTS', encoding: 'utf8' });
+      alert(`Copia guardada en Documentos/${nombre} (${col.length} cartas).`);
+      return;
+    } catch (e) { alert(`No se pudo guardar en Documentos (${e.message}). Se intentará descargar.`); }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' })); a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+function importarColeccion(ev) {
+  const f = ev.target.files && ev.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result); const nuevas = Array.isArray(d) ? d : d.coleccion;
+      if (!Array.isArray(nuevas)) throw new Error('el archivo no es una copia de PokéPrecio');
+      const col = leer('coleccion', []); const uids = new Set(col.map((c) => c.uid));
+      const agregar = nuevas.filter((c) => c && c.id && c.uid && !uids.has(c.uid));
+      guardar('coleccion', [...col, ...agregar]);
+      alert(`Importadas ${agregar.length} cartas (${nuevas.length - agregar.length} ya estaban).`);
+      pintarColeccion();
+    } catch (e) { alert(`No se pudo importar: ${e.message}`); }
+  };
+  r.readAsText(f); ev.target.value = '';
+}
+
+async function getJSON(url, intentos = 3) {
+  let ultimo;
+  for (let i = 0; i < intentos; i++) {
+    try {
+      const r = await fetch(url);
+      if (r.ok) return await r.json();
+      if (r.status === 404) throw Object.assign(new Error('no existe'), { fin: true });
+      ultimo = new Error(`HTTP ${r.status}`);
+    } catch (e) { if (e.fin) throw e; ultimo = e; }
+    await espera(700 * (i + 1));
+  }
+  throw ultimo;
+}
+
+/* ================= datos con caché ================= */
+let setsP = null;
+function getSets() {
+  if (!setsP) {
+    setsP = (async () => {
+      const c = leer('sets', null);
+      if (c && Date.now() - c.t < 3 * 864e5) return c.d;
+      try { const d = await getJSON(`${API}/sets`); guardar('sets', { t: Date.now(), d }); return d; } catch (e) { if (c) return c.d; throw e; }
+    })().catch((e) => { setsP = null; throw e; });
+  }
+  return setsP;
+}
+let codigosP = null;
+const getCodigos = () => (codigosP ||= fetch('codigos.json').then((r) => r.json()).catch(() => ({})));
+
+async function getTasas(forzar = false) {
   const c = leer('tasas', null);
-  if (c && Date.now() - c.t < 12 * 36e5) return c.d;
+  if (!forzar && c && Date.now() - c.t < 12 * 36e5) return c.d;
   try {
     const j = await getJSON(TASAS_URL);
     const d = { COP: j.rates.COP, EUR: j.rates.EUR, fecha: j.time_last_update_utc };
@@ -41,334 +112,107 @@ async function getTasas() {
 }
 
 const fmtUSD = (v) => (v == null ? '—' : `US$ ${v.toFixed(2)}`);
-const fmtCOP = (v) => (v == null ? '—' : `$ ${Math.round(v).toLocaleString('es-CO')} COP`);
-const fmtEUR = (v) => (v == null ? '—' : `€ ${v.toFixed(2)}`);
+const fmtCOP = (v) => (v == null ? '—' : `$ ${Math.round(v).toLocaleString('es-CO')}`);
+const fmtEUR = (v) => (!v ? '—' : `€ ${v.toFixed(2)}`);
 
-/* ---------- OCR ---------- */
-let workerP = null;
-function getWorker() {
-  if (!workerP) {
-    workerP = Tesseract.createWorker('eng', 1, {
-      workerPath: abs('lib/worker.min.js'),
-      corePath: abs('lib/core'),
-      workerBlobURL: false,
-    }).catch((e) => { workerP = null; throw e; });
-  }
-  return workerP;
-}
-
-function cargarImagen(src) {
-  return new Promise((ok, mal) => { const i = new Image(); i.onload = () => ok(i); i.onerror = mal; i.src = src; });
-}
-
-/* Recorta una zona (fracciones x0..x1, y0..y1), la escala, la pasa a gris con contraste estirado y opcionalmente la invierte. */
-function franja(img, y0, y1, ancho = 1800, x0 = 0, x1 = 1, invertir = false) {
-  const W = img.naturalWidth, H = img.naturalHeight;
-  const sx = Math.floor(W * x0), sw = Math.max(1, Math.floor(W * x1) - sx);
-  const sy = Math.floor(H * y0), sh = Math.max(1, Math.floor(H * y1) - sy);
-  const c = document.createElement('canvas');
-  c.width = ancho; c.height = Math.max(1, Math.round(sh * ancho / sw));
-  const g = c.getContext('2d', { willReadFrequently: true });
-  g.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
-  const d = g.getImageData(0, 0, c.width, c.height); const p = d.data;
-  let min = 255, max = 0;
-  for (let i = 0; i < p.length; i += 4) {
-    const y = 0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2];
-    p[i] = y; if (y < min) min = y; if (y > max) max = y;
-  }
-  const k = 255 / Math.max(1, max - min);
-  for (let i = 0; i < p.length; i += 4) { let v = (p[i] - min) * k; if (invertir) v = 255 - v; p[i] = p[i + 1] = p[i + 2] = v; }
-  g.putImageData(d, 0, 0);
-  return c;
-}
-
-async function leerTexto(canvas) {
-  const w = await getWorker();
-  await w.setParameters({ tessedit_pageseg_mode: '11' }); // texto disperso
-  const { data } = await w.recognize(canvas);
-  return data.text || '';
-}
-
-/* Busca patrones tipo 025/198, TG05/TG30, SV045/SV122 en el texto del OCR. */
-function extraerNumeros(texto) {
-  const arreglar = (s) => s.replace(/[Oo]/g, '0').replace(/[Il|]/g, '1').replace(/S/g, '5').replace(/B/g, '8').replace(/Z/g, '2');
-  const re = /(TG|GG|SV|RC)?\s?([0-9OoIlSBZ]{1,3})\s*[\/\\]\s*(TG|GG|SV|RC)?\s?([0-9OoIlSBZ]{2,3})(?![0-9])/gi;
-  const vistos = new Set(); const out = [];
-  let m;
-  while ((m = re.exec(texto))) {
-    const num = arreglar(m[2]); const tot = arreglar(m[4]);
-    if (!/^\d+$/.test(num) || !/^\d+$/.test(tot)) continue;
-    const total = parseInt(tot, 10);
-    if (total < 10) continue;
-    const pref = (m[1] || m[3] || '').toUpperCase();
-    const n = pref ? pref + num.padStart(2, '0') : String(parseInt(num, 10));
-    const k = `${n}/${total}`;
-    if (!vistos.has(k)) { vistos.add(k); out.push({ num: n, total, pref }); }
-    // el "1" en cursiva de las cartas nuevas se lee como "7": 730/167 → 130/167
-    if (!pref && /^7\d\d$/.test(n) && parseInt(n, 10) > total) {
-      const n1 = '1' + n.slice(1); const k1 = `${n1}/${total}`;
-      if (!vistos.has(k1)) { vistos.add(k1); out.push({ num: n1, total, pref }); }
-    }
-  }
-  return out;
-}
-
-/* Zonas donde va el número: esquina inferior izquierda (cartas nuevas) y derecha (antiguas), normal e invertido (full art). */
-const PASADAS = [
-  [0.91, 0.99, 0, 0.45, false], [0.91, 0.99, 0, 0.45, true],
-  [0.86, 1, 0, 0.5, false], [0.86, 1, 0.5, 1, false],
-  [0.86, 1, 0, 0.5, true], [0.86, 1, 0.5, 1, true],
-  [0.80, 1, 0, 1, false],
-];
-
-/* ---------- búsqueda en TCGdex ---------- */
-async function buscarPorNumero(num, total, pref = '') {
-  const sets = await getSets();
-  let cand = sets.filter((s) => s.cardCount && s.cardCount.official === total);
-  if (pref === 'TG' || pref === 'GG') cand = sets.filter((s) => /(tg|gg)$/i.test(s.id) && s.cardCount && s.cardCount.official === total);
-  if (!cand.length) cand = sets.filter((s) => s.cardCount && s.cardCount.total === total);
-  const res = await Promise.allSettled(cand.slice(0, 12).map((s) => getJSON(`${API}/sets/${encodeURIComponent(s.id)}/${encodeURIComponent(num)}`)));
-  return res.filter((r) => r.status === 'fulfilled' && r.value && r.value.id).map((r) => r.value);
-}
-
-async function buscarPorNombre(q) {
-  const l = await getJSON(`${API}/cards?name=like:${encodeURIComponent(q)}`);
-  return Array.isArray(l) ? l : [];
-}
-
-/* ---------- precios ---------- */
+/* ================= precios ================= */
 const NOMBRE_VARIANTE = {
   normal: 'Normal', holofoil: 'Holo', 'reverse-holofoil': 'Reverse holo',
-  '1st-edition': '1ª edición', '1st-edition-holofoil': '1ª edición holo', '1st-edition-normal': '1ª edición',
-  'unlimited': 'Unlimited', 'unlimited-holofoil': 'Unlimited holo',
+  '1st-edition': '1ª edición', '1st-edition-holofoil': '1ª ed. holo', '1st-edition-normal': '1ª edición',
+  unlimited: 'Unlimited', 'unlimited-holofoil': 'Unlimited holo', cardmarket: 'Cardmarket',
 };
 const ORDEN_VARIANTE = ['normal', 'holofoil', 'reverse-holofoil', '1st-edition-holofoil', '1st-edition-normal', 'unlimited-holofoil'];
 
 function variantesTCG(carta) {
   const t = carta.pricing && carta.pricing.tcgplayer;
   if (!t) return [];
+  const pos = (k) => { const i = ORDEN_VARIANTE.indexOf(k); return i < 0 ? 99 : i; };
   return Object.keys(t)
     .filter((k) => t[k] && typeof t[k] === 'object')
     .map((k) => ({ clave: k, nombre: NOMBRE_VARIANTE[k] || k, market: t[k].marketPrice, low: t[k].lowPrice, mid: t[k].midPrice, high: t[k].highPrice, productId: t[k].productId }))
-    .sort((a, b) => (ORDEN_VARIANTE.indexOf(a.clave) + 99) % 99 - (ORDEN_VARIANTE.indexOf(b.clave) + 99) % 99);
+    .sort((a, b) => pos(a.clave) - pos(b.clave));
 }
 
-/* Precio de referencia en USD para una variante (o la principal). */
 function precioUSD(carta, tasas, variante) {
   const vs = variantesTCG(carta);
-  const v = (variante && vs.find((x) => x.clave === variante)) || vs.find((x) => x.market != null) || vs[0];
-  if (v && (v.market ?? v.mid) != null) return { usd: v.market ?? v.mid, variante: v.clave, fuente: 'TCGplayer' };
+  const v = (variante && vs.find((x) => x.clave === variante && (x.market ?? x.mid) != null)) || vs.find((x) => x.market != null) || vs.find((x) => x.mid != null);
+  if (v) return { usd: v.market ?? v.mid, variante: v.clave, fuente: 'TCGplayer' };
   const cm = carta.pricing && carta.pricing.cardmarket;
   if (cm && (cm.trend ?? cm.avg) != null) return { usd: (cm.trend ?? cm.avg) / tasas.EUR, variante: 'cardmarket', fuente: 'Cardmarket' };
   return { usd: null, variante: null, fuente: null };
 }
 
-/* ---------- interfaz ---------- */
-function estado(msg, tipo = '') {
-  const e = $('#estado');
-  if (!msg) { e.hidden = true; return; }
-  e.hidden = false; e.className = `estado ${tipo}`; e.innerHTML = msg;
+/* ================= rareza ================= */
+const RAREZA = [
+  ['Común', 1], ['Un Diamante', 1], ['Uncommon', 2], ['Dos Diamantes', 2], ['Rara', 3], ['Tres Diamantes', 3], ['Promo', 3],
+  ['Holo Rara', 4], ['Cuatro Diamantes', 4], ['Holo Rara V', 5], ['Rara Doble', 5], ['Rara AS TÁCTICO', 5], ['Rara Radiante', 5],
+  ['Holo Rara VSTAR', 6], ['Holo Rara VMAX', 6], ['Shiny rare', 6], ['Una Estrella', 6], ['Rara Primigenia', 6], ['Increíbles', 6],
+  ['Ultra Rara', 7], ['Rara Ilustración', 7], ['Entrenador de arte completo', 7], ['Shiny rare V', 7], ['Shiny rare VMAX', 7], ['Rara Ultra Variocolor', 7], ['One Shiny', 6], ['Two Shiny', 7],
+  ['Rara Secreta', 8], ['Rara Híper', 8], ['Rara Ilustración Especial', 9], ['Mega Hiper Rara', 9], ['Mega Attack Rare', 8], ['Rara Blanca y Negra', 8],
+  ['Dos Estrellas', 8], ['Tres Estrellas', 9], ['Corona', 10],
+];
+const nivelRareza = (r) => { const x = RAREZA.find(([n]) => sinTildes(n) === sinTildes(r)); return x ? x[1] : 0; };
+const GRUPOS_RAREZA = [['Todas', 0, 99], ['Comunes', 1, 2], ['Raras', 3, 4], ['Dobles / V / ex', 5, 6], ['Ultra / Ilustración', 7, 7], ['Secretas / Híper', 8, 10]];
+
+/* ================= navegación ================= */
+function irA(vista) {
+  $$('.tab').forEach((t) => t.classList.toggle('activo', t.dataset.vista === vista));
+  $$('.vista').forEach((v) => v.classList.toggle('activa', v.id === `vista-${vista}`));
+  if (vista === 'coleccion') { pararCamara(); pintarColeccion(); } else if ($('#panel-resultado').hidden) iniciarCamara();
+  window.scrollTo(0, 0);
 }
 
-function limpiarResultados() {
-  $('#candidatos').innerHTML = ''; $('#detalle').innerHTML = '';
-}
-
-function imgCarta(c, calidad = 'low') {
-  return c.image ? `${c.image}/${calidad}.webp` : 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 63 88"><rect width="63" height="88" fill="#2e3240"/><text x="31" y="48" font-size="10" fill="#9aa1b2" text-anchor="middle">sin imagen</text></svg>');
-}
-
-function mostrarCandidatos(cartas, titulo) {
-  const cont = $('#candidatos');
-  cont.innerHTML = `<p class="titulo-sec" style="grid-column:1/-1">${esc(titulo)}</p>` + cartas.map((c, i) => `
-    <button class="cand" data-i="${i}">
-      <img loading="lazy" src="${esc(imgCarta(c))}" alt="">
-      <div class="n">${esc(c.name)}</div>
-      <div class="s">${esc(c.set ? c.set.name : c.id)} · #${esc(c.localId)}</div>
-    </button>`).join('');
-  cont.querySelectorAll('.cand').forEach((b) => b.addEventListener('click', () => abrirCarta(cartas[+b.dataset.i])));
-}
-
-async function abrirCarta(c) {
-  const det = $('#detalle');
-  det.innerHTML = '<div class="estado cargando">Consultando precio</div>';
+/* ================= cámara en vivo ================= */
+let flujo = null;
+async function iniciarCamara() {
+  if (flujo || document.hidden || !$('#vista-escanear').classList.contains('activa') || !$('#panel-resultado').hidden) return;
+  $('#sin-camara').hidden = true;
   try {
-    const carta = c.pricing ? c : await getJSON(`${API}/cards/${encodeURIComponent(c.id)}`);
-    const tasas = await getTasas();
-    pintarCarta(carta, tasas);
-    det.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    flujo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1920 } }, audio: false });
+    const v = $('#video'); v.srcObject = flujo; await v.play().catch(() => {});
+    // enfoque continuo si el celular lo permite
+    const pista = flujo.getVideoTracks()[0];
+    const cap = pista.getCapabilities ? pista.getCapabilities() : {};
+    if (cap.focusMode && cap.focusMode.includes('continuous')) pista.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
   } catch (e) {
-    det.innerHTML = `<div class="estado error">No se pudo consultar la carta (${esc(e.message)}). Revisa tu conexión.</div>`;
+    flujo = null;
+    $('#sin-camara').hidden = false;
+    $('#sin-camara p').textContent = `No se pudo abrir la cámara en vivo (${e.name || e.message}). Usa 📷 o 🖼️.`;
   }
 }
-
-function pintarCarta(carta, tasas) {
-  const vs = variantesTCG(carta);
-  const p = precioUSD(carta, tasas);
-  const cm = carta.pricing && carta.pricing.cardmarket;
-  const set = carta.set || {};
-  const oficial = set.cardCount ? set.cardCount.official : '?';
-  const prodTCG = vs.find((v) => v.productId)?.productId || (carta.thirdParty && carta.thirdParty.tcgplayer);
-  const filas = vs.map((v) => `<tr><td>${esc(v.nombre)}</td><td>${fmtUSD(v.market)}</td><td>${fmtUSD(v.low)}</td><td>${v.market != null ? fmtCOP(v.market * tasas.COP) : '—'}</td></tr>`).join('');
-  const actualizado = carta.pricing?.tcgplayer?.updated || cm?.updated;
-
-  $('#detalle').innerHTML = `
-  <div class="carta">
-    <div class="carta-top">
-      <img src="${esc(imgCarta(carta, 'high'))}" alt="">
-      <div>
-        <h2>${esc(carta.name)}</h2>
-        <div class="meta">
-          ${set.symbol ? `<img class="simbolo" src="${esc(set.symbol)}.webp" alt=""> ` : ''}${esc(set.name || '')}<br>
-          Nº ${esc(carta.localId)}/${esc(oficial)}${carta.rarity ? ` · ${esc(carta.rarity)}` : ''}
-        </div>
-        <div class="precio-grande">${fmtUSD(p.usd)}</div>
-        <div class="precio-cop">${p.usd != null ? fmtCOP(p.usd * tasas.COP) : 'Sin precio registrado'}</div>
-        <div class="meta">${p.fuente ? `${esc(p.fuente)} · ${esc(NOMBRE_VARIANTE[p.variante] || p.variante)}` : ''}</div>
-      </div>
-    </div>
-    ${vs.length ? `<table><thead><tr><th>TCGplayer</th><th>Mercado</th><th>Mínimo</th><th>En pesos</th></tr></thead><tbody>${filas}</tbody></table>` : ''}
-    ${cm ? `<table><thead><tr><th>Cardmarket</th><th>Tendencia</th><th>Prom. 30 d</th><th>En pesos</th></tr></thead><tbody>
-      <tr><td>Normal</td><td>${fmtEUR(cm.trend)}</td><td>${fmtEUR(cm.avg30)}</td><td>${cm.trend != null ? fmtCOP(cm.trend / tasas.EUR * tasas.COP) : '—'}</td></tr>
-      ${cm['trend-holo'] != null ? `<tr><td>Holo / reverse</td><td>${fmtEUR(cm['trend-holo'])}</td><td>${fmtEUR(cm['avg30-holo'])}</td><td>${fmtCOP(cm['trend-holo'] / tasas.EUR * tasas.COP)}</td></tr>` : ''}
-    </tbody></table>` : ''}
-    <div class="botones">
-      <button class="guardar" id="btn-guardar">＋ A mi colección</button>
-      ${prodTCG ? `<a href="https://www.tcgplayer.com/product/${encodeURIComponent(prodTCG)}" target="_blank" rel="noopener">Ver en TCGplayer</a>` : ''}
-    </div>
-    <p class="nota">TCGplayer cotiza la versión en inglés (referencia del mercado); las cartas en español suelen venderse algo más baratas. Cardmarket mezcla idiomas.
-    Dólar: ${tasas.COP.toFixed(0)} COP (${esc(tasas.fecha || '')}).${actualizado ? ` Precios actualizados: ${esc(new Date(actualizado).toLocaleDateString('es-CO'))}.` : ''}</p>
-  </div>`;
-  $('#btn-guardar').addEventListener('click', (ev) => {
-    agregarColeccion(carta, p);
-    ev.target.textContent = '✓ Guardada'; ev.target.disabled = true;
-  });
+function pararCamara() {
+  if (flujo) { flujo.getTracks().forEach((t) => t.stop()); flujo = null; }
+  $('#video').srcObject = null;
 }
 
-/* ---------- flujo principal ---------- */
-function ordenarPorNombre(cartas, texto) {
-  const t = sinTildes(texto);
-  const puntaje = (c) => {
-    const n = sinTildes(c.name);
-    if (n && t.includes(n)) return 100;
-    return n.split(/\s+/).filter((w) => w.length >= 3 && t.includes(w)).length * 10;
-  };
-  return cartas.map((c) => ({ c, s: puntaje(c) })).sort((a, b) => b.s - a.s);
+/* Captura el cuadro del video recortado exactamente al marco de la carta. */
+function capturarMarco() {
+  const v = $('#video');
+  if (!flujo || !v.videoWidth) return null;
+  const rv = v.getBoundingClientRect(), rm = $('#marco').getBoundingClientRect();
+  const esc_ = Math.max(rv.width / v.videoWidth, rv.height / v.videoHeight); // object-fit: cover
+  const ox = (rv.width - v.videoWidth * esc_) / 2, oy = (rv.height - v.videoHeight * esc_) / 2;
+  const margen = 0.03; // un poco de aire alrededor
+  let x = (rm.left - rv.left - ox) / esc_, y = (rm.top - rv.top - oy) / esc_;
+  let w = rm.width / esc_, h = rm.height / esc_;
+  x -= w * margen; y -= h * margen; w *= 1 + 2 * margen; h *= 1 + 2 * margen;
+  x = Math.max(0, x); y = Math.max(0, y); w = Math.min(v.videoWidth - x, w); h = Math.min(v.videoHeight - y, h);
+  const c = document.createElement('canvas');
+  const anchoSalida = Math.min(1600, Math.round(w * 1.5));
+  c.width = anchoSalida; c.height = Math.round(h * anchoSalida / w);
+  c.getContext('2d').drawImage(v, x, y, w, h, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.92);
 }
 
-async function procesarFoto(src) {
-  limpiarResultados();
-  const prev = $('#vista-previa'); prev.src = src; prev.hidden = false;
-  $('#ocr-detalle').hidden = true;
-  try {
-    estado('<span class="cargando">Leyendo la carta (la primera vez descarga el lector, ~10 MB)</span>');
-    const img = await cargarImagen(src);
-    const totales = new Set((await getSets()).map((s) => s.cardCount && s.cardCount.official));
-    const arriba = await leerTexto(franja(img, 0.0, 0.17));
-    let todo = arriba;
-    // varias pasadas; se cuentan las lecturas que coinciden con el total de un set real
-    const votos = new Map();
-    for (let i = 0; i < PASADAS.length; i++) {
-      const [y0, y1, x0, x1, inv] = PASADAS[i];
-      estado(`<span class="cargando">Buscando el número de la carta (${i + 1}/${PASADAS.length})</span>`);
-      const t = await leerTexto(franja(img, y0, y1, 1800, x0, x1, inv));
-      todo += `\n${t}`;
-      for (const n of extraerNumeros(t).filter((x) => totales.has(x.total))) {
-        const k = `${n.num}/${n.total}`;
-        votos.set(k, { ...n, votos: (votos.get(k)?.votos || 0) + 1 });
-      }
-    }
-    // dígitos que el OCR confunde en el total (198 ↔ 195, 183 ↔ 188…): se agregan como alternativas sin votos
-    const CONF = { 5: '8', 8: '56', 3: '8', 6: '8' };
-    for (const n of [...votos.values()]) {
-      const t = String(n.total);
-      for (let i = 0; i < t.length; i++) {
-        for (const d of CONF[t[i]] || '') {
-          const tot = parseInt(t.slice(0, i) + d + t.slice(i + 1), 10); const k = `${n.num}/${tot}`;
-          if (totales.has(tot) && !votos.has(k)) votos.set(k, { ...n, total: tot, votos: 0 });
-        }
-      }
-    }
-    const nums = [...votos.values()].sort((a, b) => b.votos - a.votos);
-    $('#ocr-texto').textContent = todo.trim(); $('#ocr-detalle').hidden = false;
-
-    if (nums.length) {
-      estado(`<span class="cargando">Buscando ${esc(nums.slice(0, 6).map((n) => `${n.num}/${n.total}`).join(', '))}</span>`);
-      let cartas = [];
-      for (const n of nums.slice(0, 6)) {
-        for (const c of await buscarPorNumero(n.num, n.total, n.pref)) cartas.push({ ...c, _votos: n.votos });
-      }
-      cartas = [...new Map(cartas.map((c) => [c.id, c])).values()];
-      if (cartas.length) {
-        const ord = ordenarPorNombre(cartas, todo).map((x) => ({ ...x, s: x.s + x.c._votos }))
-          .sort((a, b) => b.s - a.s);
-        const lista = ord.map((x) => x.c);
-        const seguro = lista.length === 1 || (ord[0].s >= 100 && ord[1].s < 100);
-        estado(seguro ? `Encontrada: <b>${esc(lista[0].name)}</b> (${esc(nums[0].num)}/${nums[0].total})`
-          : `Leí <b>${esc(nums.map((n) => `${n.num}/${n.total}`).join(', '))}</b>. Hay ${lista.length} cartas con ese número: toca la tuya (fíjate en el símbolo del set).`);
-        mostrarCandidatos(lista, seguro ? 'Coincidencias' : '¿Cuál es tu carta?');
-        if (seguro) abrirCarta(lista[0]);
-        return;
-      }
-    }
-    // Sin número útil: intentar con palabras del nombre
-    const palabras = [...new Set((arriba.match(/[A-Za-zÁÉÍÓÚÑáéíóúñ]{4,}/g) || []))]
-      .filter((w) => !/^(basic|basico|básico|fase|stage|evoluciona|evolves|trainer|entrenador|pokemon|pokémon)$/i.test(w))
-      .sort((a, b) => b.length - a.length).slice(0, 3);
-    for (const w of palabras) {
-      const r = await buscarPorNombre(w);
-      if (r.length) {
-        estado(`No pude leer el número; busqué por nombre «${esc(w)}». Toca tu carta o escribe el número abajo.`);
-        mostrarCandidatos(r.slice(0, 60), `Resultados para «${w}»`);
-        return;
-      }
-    }
-    estado('No pude reconocer la carta. Prueba otra foto (más luz, sin reflejo, carta derecha) o escribe el número tipo <b>25/198</b>.', 'error');
-  } catch (e) {
-    console.error(e);
-    estado(`Error leyendo la foto: ${esc(e.message || e)}. ¿Tienes internet?`, 'error');
-  }
-}
-
-async function busquedaManual(q) {
-  q = q.trim(); if (!q) return;
-  limpiarResultados(); $('#vista-previa').hidden = true; $('#ocr-detalle').hidden = true;
-  const m = q.match(/^\s*(TG|GG|SV|RC)?\s*(\d{1,3})\s*\/\s*(TG|GG|SV|RC)?\s*(\d{1,3})\s*$/i);
-  try {
-    if (m) {
-      const pref = (m[1] || m[3] || '').toUpperCase();
-      const num = pref ? pref + m[2].padStart(2, '0') : String(parseInt(m[2], 10));
-      estado('<span class="cargando">Buscando</span>');
-      const cartas = await buscarPorNumero(num, parseInt(m[4], 10), pref);
-      if (!cartas.length) return estado(`No encontré cartas ${esc(q)}.`, 'error');
-      estado(cartas.length === 1 ? `Encontrada: <b>${esc(cartas[0].name)}</b>` : `${cartas.length} cartas con ese número: toca la tuya.`);
-      mostrarCandidatos(cartas, 'Resultados');
-      if (cartas.length === 1) abrirCarta(cartas[0]);
-    } else if (/^\d+$/.test(q)) {
-      estado('Escribe también el total del set, como aparece en la carta: <b>25/198</b>.', 'error');
-    } else {
-      estado('<span class="cargando">Buscando</span>');
-      const r = await buscarPorNombre(q);
-      if (!r.length) return estado(`Nada para «${esc(q)}». Usa el nombre en español, como sale en la carta.`, 'error');
-      estado(`${r.length} cartas para «${esc(q)}». Toca la tuya.`);
-      mostrarCandidatos(r.slice(0, 80), 'Resultados');
-    }
-  } catch (e) {
-    estado(`Error de conexión: ${esc(e.message)}`, 'error');
-  }
-}
-
-/* ---------- cámara ---------- */
 const nativo = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-
-async function tomarFoto(fuente) {
+async function fotoSistema(fuente) {
   const cam = nativo && window.Capacitor.Plugins && window.Capacitor.Plugins.Camera;
   if (cam) {
     try {
-      const f = await cam.getPhoto({ quality: 90, width: 2000, resultType: 'dataUrl', source: fuente === 'galeria' ? 'PHOTOS' : 'CAMERA', correctOrientation: true, saveToGallery: false });
+      const f = await cam.getPhoto({ quality: 92, width: 2000, resultType: 'dataUrl', source: fuente === 'galeria' ? 'PHOTOS' : 'CAMERA', correctOrientation: true, saveToGallery: false });
       procesarFoto(f.dataUrl);
     } catch (e) {
-      if (!/cancel/i.test(String(e && e.message))) estado(`No se pudo abrir la cámara: ${esc(e.message || e)}`, 'error');
+      if (!/cancel/i.test(String(e && e.message))) alert(`No se pudo abrir la ${fuente === 'galeria' ? 'galería' : 'cámara'}: ${e.message || e}`);
     }
   } else {
     $(fuente === 'galeria' ? '#input-galeria' : '#input-foto').click();
@@ -380,89 +224,460 @@ function desdeInput(ev) {
   ev.target.value = '';
 }
 
-/* ---------- colección ---------- */
-function agregarColeccion(carta, p) {
-  const col = leer('coleccion', []);
-  col.unshift({ uid: Date.now() + Math.random().toString(36).slice(2, 6), id: carta.id, name: carta.name, set: carta.set ? carta.set.name : '', num: `${carta.localId}/${carta.set?.cardCount?.official ?? '?'}`, image: carta.image, variante: p.variante, usd: p.usd, usdInicial: p.usd, fecha: Date.now(), historial: p.usd != null ? [{ t: Date.now(), usd: p.usd }] : [] });
-  guardar('coleccion', col);
+/* ================= reconocimiento ================= */
+let imgActual = null;
+let busquedaId = 0;
+
+function estado(html, tipo = '') { const e = $('#estado'); e.className = `estado ${tipo}`; e.innerHTML = html; }
+function progresoHTML(txt, i, n) { return `<span class="cargando">${esc(txt)}</span><div class="progreso"><div style="width:${Math.round(100 * i / n)}%"></div></div>`; }
+
+function mostrarResultado() {
+  pararCamara();
+  $('#panel-camara').hidden = true; $('#panel-resultado').hidden = false;
+  $('#candidatos').innerHTML = ''; $('#titulo-cand').hidden = true; $('#detalle').innerHTML = ''; $('#ocr-detalle').hidden = true; $('#punto').hidden = true;
+}
+function volverACamara() {
+  busquedaId++;
+  $('#panel-resultado').hidden = true; $('#panel-camara').hidden = false; imgActual = null;
+  window.scrollTo(0, 0); iniciarCamara();
 }
 
-function cambio(c) {
-  if (c.usd == null || !c.usdInicial) return '';
-  const pct = (c.usd / c.usdInicial - 1) * 100;
-  if (Math.abs(pct) < 0.5) return '<span class="meta">= sin cambio</span>';
+async function procesarFoto(src) {
+  const id = ++busquedaId;
+  mostrarResultado();
+  $('#mini-wrap').hidden = false; $('#mini').src = src; $('#ayuda-toque').hidden = true;
+  try {
+    estado(progresoHTML('Preparando el lector (la primera vez descarga ~10 MB)', 0, 1));
+    const [img, sets, codigos] = await Promise.all([cargarImagen(src), getSets(), getCodigos()]);
+    imgActual = img;
+    const totales = new Set(sets.map((s) => s.cardCount && s.cardCount.official));
+    const res = await Reconocer.reconocer(img, {
+      totales, codigos,
+      progreso: (i, n, fase) => { if (id === busquedaId) estado(progresoHTML(fase === 'nombre' ? 'Leyendo el nombre' : 'Leyendo el número de la carta', i, n + 1)); },
+    });
+    if (id !== busquedaId) return;
+    await resolver(res, id, sets, codigos);
+  } catch (e) {
+    console.error(e);
+    if (id === busquedaId) estado(`Error leyendo la foto: ${esc(e.message || e)}. ¿Tienes internet?`, 'error');
+  }
+}
+
+async function leerToque(fx, fy) {
+  if (!imgActual) return;
+  const id = ++busquedaId;
+  const p = $('#punto'); p.hidden = false; p.style.left = `${fx * 100}%`; p.style.top = `${fy * 100}%`;
+  $('#candidatos').innerHTML = ''; $('#titulo-cand').hidden = true; $('#detalle').innerHTML = '';
+  estado('<span class="cargando">Leyendo la zona que tocaste</span>');
+  try {
+    const [sets, codigos] = await Promise.all([getSets(), getCodigos()]);
+    const totales = new Set(sets.map((s) => s.cardCount && s.cardCount.official));
+    const res = await Reconocer.reconocerZona(imgActual, fx, fy, { totales, codigos });
+    if (id !== busquedaId) return;
+    await resolver(res, id, sets, codigos);
+  } catch (e) {
+    if (id === busquedaId) estado(`Error: ${esc(e.message || e)}`, 'error');
+  }
+}
+
+async function resolver(res, id, sets, codigos) {
+  $('#ocr-texto').textContent = res.texto; $('#ocr-detalle').hidden = !res.texto;
+  const leido = [...res.codigos.map((c) => `${c}`), ...res.lecturas.filter((l) => l.votos).slice(0, 2).map((l) => `${l.num}/${l.total}`)].join(' · ');
+  estado(`<span class="cargando">Buscando ${esc(leido || 'la carta')}</span>`);
+  let ranking = await Reconocer.identificar(res, { api: API, sets, codigos, getJSON });
+  if (id !== busquedaId) return;
+
+  if (!ranking.length) {
+    // plan B: nombre leído arriba
+    const palabras = [...new Set(res.arriba.match(/[A-Za-zÁÉÍÓÚÑáéíóúñ]{4,}/g) || [])]
+      .filter((w) => !/^(basic|basico|básico|fase|stage|evoluciona|evolves|trainer|entrenador|pokemon|pokémon|ilus|illus)$/i.test(w))
+      .sort((a, b) => b.length - a.length).slice(0, 3);
+    for (const w of palabras) {
+      const r = await buscarPorNombre(w).catch(() => []);
+      if (id !== busquedaId) return;
+      if (r.length) {
+        estado(`No pude leer el número; busqué por nombre «${esc(w)}». Elige tu carta.`);
+        $('#ayuda-toque').hidden = false;
+        mostrarCandidatos(r.slice(0, 40), `Resultados para «${w}»`);
+        return;
+      }
+    }
+    estado('No pude reconocer la carta.', 'error');
+    $('#ayuda-toque').hidden = false;
+    return;
+  }
+  const cartas = ranking.map((x) => x.carta);
+  const seguro = ranking.length === 1 || ranking[0].puntaje - ranking[1].puntaje >= 40;
+  $('#ayuda-toque').hidden = false;
+  estado(seguro ? `✅ <b>${esc(cartas[0].name)}</b> · ${esc(cartas[0].set?.name || '')}`
+    : `Encontré ${cartas.length} posibles. La más probable está marcada; si no es, toca la tuya (fíjate en el símbolo del set).`);
+  mostrarCandidatos(cartas, seguro ? 'Otras coincidencias' : '¿Cuál es tu carta?', 0);
+  abrirCarta(cartas[0], $('#detalle'));
+}
+
+function cargarImagen(src) {
+  return new Promise((ok, mal) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => mal(new Error('imagen inválida')); i.src = src; });
+}
+
+async function buscarPorNumero(num, total, pref = '') {
+  const sets = await getSets();
+  let cand = sets.filter((s) => s.cardCount && s.cardCount.official === total);
+  if (pref === 'TG' || pref === 'GG') cand = sets.filter((s) => /(tg|gg)$/i.test(s.id) && s.cardCount && s.cardCount.official === total);
+  if (!cand.length) cand = sets.filter((s) => s.cardCount && s.cardCount.total === total);
+  const r = await Promise.allSettled(cand.slice(0, 12).map((s) => getJSON(`${API}/sets/${encodeURIComponent(s.id)}/${encodeURIComponent(num)}`)));
+  return r.filter((x) => x.status === 'fulfilled' && x.value && x.value.id).map((x) => x.value);
+}
+/* Número sin "/": "43 94", "043094", "4394" o solo "43". */
+async function buscarSoloNumeros(q) {
+  const sets = await getSets();
+  const totales = new Set(sets.map((s) => s.cardCount && s.cardCount.official));
+  const grupos = q.match(/\d+/g) || [];
+  let pares = [];
+  if (grupos.length >= 2) pares = [[grupos[0], grupos[1]]];
+  else {
+    const d = grupos[0] || '';
+    // todas las formas de partir los dígitos en número + total (total de 2–3 cifras que exista)
+    for (let i = 1; i < d.length; i++) {
+      const num = d.slice(0, i), tot = d.slice(i);
+      if (num.length <= 3 && tot.length >= 2 && tot.length <= 3 && totales.has(parseInt(tot, 10)) && parseInt(num, 10) > 0) pares.push([num, tot]);
+    }
+  }
+  let cartas = [];
+  for (const [num, tot] of pares.slice(0, 4)) cartas.push(...await buscarPorNumero(String(parseInt(num, 10)), parseInt(tot, 10)));
+  cartas = [...new Map(cartas.map((c) => [c.id, c])).values()];
+  if (cartas.length || grupos.length >= 2) return cartas;
+  // solo el número de la carta: todas las cartas con ese número, sets más nuevos primero
+  const n = parseInt(grupos[0], 10); if (!n || n > 999) return [];
+  const orden = new Map(sets.map((s, i) => [s.id, i]));
+  const l = await getJSON(`${API}/cards?localId=${n}`).catch(() => []);
+  const l2 = String(n).length < 3 ? await getJSON(`${API}/cards?localId=${String(n).padStart(3, '0')}`).catch(() => []) : [];
+  return [...new Map([...l, ...l2].filter((c) => c.id && parseInt(c.localId, 10) === n).map((c) => [c.id, c])).values()].sort((a, b) => (orden.get(b.id.slice(0, b.id.lastIndexOf('-'))) ?? 0) - (orden.get(a.id.slice(0, a.id.lastIndexOf('-'))) ?? 0));
+}
+
+async function buscarPorNombre(q) {
+  const l = await getJSON(`${API}/cards?name=like:${encodeURIComponent(q)}`);
+  return Array.isArray(l) ? l : [];
+}
+
+async function busquedaManual(q) {
+  q = q.trim(); if (!q) return;
+  const id = ++busquedaId;
+  mostrarResultado(); $('#mini-wrap').hidden = true; $('#ayuda-toque').hidden = true; imgActual = null;
+  const mNum = q.match(/^\s*(TG|GG|SV|RC)?\s*(\d{1,3})\s*\/\s*(TG|GG|SV|RC)?\s*(\d{1,3})\s*$/i);
+  const mCod = q.toUpperCase().match(/^\s*([A-Z0-9]{2,4})\s+(?:[A-Z]{2}\s+)?(\d{1,3})(?:\s*\/\s*\d{1,3})?\s*$/);
+  try {
+    estado('<span class="cargando">Buscando</span>');
+    let cartas = [];
+    const codigos = await getCodigos();
+    if (mCod && codigos[mCod[1]]) {
+      cartas = [await getJSON(`${API}/sets/${encodeURIComponent(codigos[mCod[1]])}/${parseInt(mCod[2], 10)}`).catch(() => null)].filter(Boolean);
+    } else if (mNum) {
+      const pref = (mNum[1] || mNum[3] || '').toUpperCase();
+      const num = pref ? pref + mNum[2].padStart(2, '0') : String(parseInt(mNum[2], 10));
+      cartas = await buscarPorNumero(num, parseInt(mNum[4], 10), pref);
+    } else if (/^[\d\s.\-]+$/.test(q)) {
+      cartas = await buscarSoloNumeros(q);
+    } else {
+      cartas = await buscarPorNombre(q);
+    }
+    if (id !== busquedaId) return;
+    if (!cartas.length) return estado(`No encontré «${esc(q)}». Usa el nombre en español o el número tipo 43/94.`, 'error');
+    estado(cartas.length === 1 ? `✅ <b>${esc(cartas[0].name)}</b>` : `${cartas.length} resultados para «${esc(q)}». Toca la tuya.`);
+    mostrarCandidatos(cartas.slice(0, 80), 'Resultados', cartas.length === 1 ? 0 : -1);
+    if (cartas.length === 1) abrirCarta(cartas[0], $('#detalle'));
+  } catch (e) {
+    estado(`Error de conexión: ${esc(e.message)}`, 'error');
+  }
+}
+
+/* ================= interfaz de cartas ================= */
+function imgCarta(c, calidad = 'low') {
+  return c.image ? `${c.image}/${calidad}.webp` : 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 63 88"><rect width="63" height="88" rx="4" fill="#1f2330"/><text x="31" y="47" font-size="8" fill="#8f97aa" text-anchor="middle" font-family="sans-serif">sin imagen</text></svg>');
+}
+
+function mostrarCandidatos(cartas, titulo, sel = -1) {
+  const cont = $('#candidatos'); const tit = $('#titulo-cand');
+  if (cartas.length <= 1 && sel === 0) { cont.innerHTML = ''; tit.hidden = true; return; }
+  tit.hidden = false; tit.textContent = titulo;
+  cont.innerHTML = cartas.map((c, i) => `
+    <button class="cand${i === sel ? ' sel' : ''}" data-i="${i}">
+      <img loading="lazy" src="${esc(imgCarta(c))}" alt="">
+      <div class="n">${esc(c.name)}</div>
+      <div class="s">${esc(c.set ? c.set.name : c.id)} · ${esc(c.localId)}</div>
+    </button>`).join('');
+  $$('.cand', cont).forEach((b) => b.addEventListener('click', () => {
+    $$('.cand', cont).forEach((x) => x.classList.toggle('sel', x === b));
+    abrirCarta(cartas[+b.dataset.i], $('#detalle'));
+  }));
+}
+
+async function abrirCarta(c, destino, item = null) {
+  destino.innerHTML = '<div class="carta"><span class="cargando">Consultando precio actual</span></div>';
+  try {
+    const carta = c.pricing !== undefined && c.set?.cardCount ? c : await getJSON(`${API}/cards/${encodeURIComponent(c.id)}`);
+    const tasas = await getTasas();
+    pintarCarta(carta, tasas, destino, item);
+  } catch (e) {
+    destino.innerHTML = `<div class="carta estado error">No se pudo consultar la carta (${esc(e.message)}). Revisa tu conexión.</div>`;
+  }
+}
+
+function graficoHistoria(hist) {
+  if (!hist || hist.length < 2) return '<p class="nota">El historial aparecerá a medida que se actualicen los precios.</p>';
+  const xs = hist.map((h) => h.t), ys = hist.map((h) => h.usd);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const W = 300, H = 60, px = (t) => (x1 === x0 ? 0 : (t - x0) / (x1 - x0)) * W, py = (u) => H - 4 - (y1 === y0 ? 0.5 : (u - y0) / (y1 - y0)) * (H - 8);
+  const d = hist.map((h, i) => `${i ? 'L' : 'M'}${px(h.t).toFixed(1)},${py(h.usd).toFixed(1)}`).join(' ');
+  const color = ys[ys.length - 1] >= ys[0] ? 'var(--verde)' : 'var(--rojo)';
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><path d="${d} L${W},${H} L0,${H} Z" fill="${color}" opacity=".12"/><path d="${d}" fill="none" stroke="${color}" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>
+    <div class="meta" style="display:flex;justify-content:space-between"><span>${new Date(x0).toLocaleDateString('es-CO')} · ${fmtUSD(ys[0])}</span><span>mín ${fmtUSD(y0)} · máx ${fmtUSD(y1)}</span></div>`;
+}
+
+function pintarCarta(carta, tasas, destino, item = null) {
+  const vs = variantesTCG(carta);
+  let variante = item ? item.variante : null;
+  const cm = carta.pricing && carta.pricing.cardmarket;
+  const set = carta.set || {};
+  const oficial = set.cardCount ? set.cardCount.official : '?';
+  const prodTCG = vs.find((v) => v.productId)?.productId || (carta.thirdParty && carta.thirdParty.tcgplayer);
+  const actualizado = carta.pricing?.tcgplayer?.updated || cm?.updated;
+
+  const pintarPrecio = () => {
+    const p = precioUSD(carta, tasas, variante);
+    variante = p.variante;
+    $('.precio', destino).innerHTML = p.usd != null
+      ? `<div class="usd">${fmtUSD(p.usd)}</div><div class="cop">${fmtCOP(p.usd * tasas.COP)} COP</div><div class="fuente">${esc(p.fuente)} · ${esc(NOMBRE_VARIANTE[p.variante] || p.variante)}</div>`
+      : '<div class="cop">Sin precio registrado</div>';
+    $$('.variantes button', destino).forEach((b) => b.classList.toggle('sel', b.dataset.v === p.variante));
+    return p;
+  };
+
+  destino.innerHTML = `
+  <div class="carta">
+    <div class="carta-top">
+      <img class="carta-img" src="${esc(imgCarta(carta, 'high'))}" alt="${esc(carta.name)}">
+      <div style="min-width:0">
+        <h2>${esc(carta.name)}</h2>
+        <div class="meta">
+          ${set.symbol ? `<img class="simbolo" src="${esc(set.symbol)}.webp" alt="" onerror="this.remove()">` : ''}${esc(set.name || '')}<br>
+          Nº ${esc(carta.localId)}/${esc(oficial)}
+        </div>
+        ${carta.rarity ? `<span class="chip-rareza">${esc(carta.rarity)}</span>` : ''}
+        <div class="precio"></div>
+      </div>
+    </div>
+    <div class="botones">
+      ${item ? '' : '<button class="guardar" data-acc="guardar">＋ A mi colección</button>'}
+      ${prodTCG ? `<a href="https://www.tcgplayer.com/product/${encodeURIComponent(prodTCG)}" target="_blank" rel="noopener">Ver en TCGplayer</a>` : ''}
+    </div>
+    ${vs.length > 1 ? `<div class="variantes">${vs.map((v) => `<button data-v="${esc(v.clave)}">${esc(v.nombre)} · ${fmtUSD(v.market ?? v.mid)}</button>`).join('')}</div>` : ''}
+    ${vs.length ? `<table><thead><tr><th>TCGplayer</th><th>Mercado</th><th>Mínimo</th><th>En pesos</th></tr></thead><tbody>
+      ${vs.map((v) => `<tr><td>${esc(v.nombre)}</td><td>${fmtUSD(v.market)}</td><td>${fmtUSD(v.low)}</td><td>${v.market != null ? fmtCOP(v.market * tasas.COP) : '—'}</td></tr>`).join('')}</tbody></table>` : ''}
+    ${cm ? `<table><thead><tr><th>Cardmarket</th><th>Tendencia</th><th>Prom. 30 d</th><th>En pesos</th></tr></thead><tbody>
+      <tr><td>Normal</td><td>${fmtEUR(cm.trend)}</td><td>${fmtEUR(cm.avg30)}</td><td>${cm.trend != null ? fmtCOP(cm.trend / tasas.EUR * tasas.COP) : '—'}</td></tr>
+      ${cm['trend-holo'] ? `<tr><td>Holo / reverse</td><td>${fmtEUR(cm['trend-holo'])}</td><td>${fmtEUR(cm['avg30-holo'])}</td><td>${fmtCOP(cm['trend-holo'] / tasas.EUR * tasas.COP)}</td></tr>` : ''}
+    </tbody></table>` : ''}
+    ${item ? `<p class="titulo-sec">Historial de precio</p><div class="historia">${graficoHistoria(item.historial)}</div>` : ''}
+    ${item ? '<div class="botones"><button class="peligro" data-acc="quitar">Quitar de mi colección</button></div>' : ''}
+    <p class="nota">Precio consultado ahora mismo${actualizado ? ` (TCGdex lo actualizó el ${esc(new Date(actualizado).toLocaleDateString('es-CO'))})` : ''}.
+    TCGplayer cotiza la versión en inglés; las cartas en español suelen venderse algo más baratas. Cardmarket mezcla idiomas.</p>
+  </div>`;
+
+  let p = pintarPrecio();
+  $$('.variantes button', destino).forEach((b) => b.addEventListener('click', () => {
+    variante = b.dataset.v; p = pintarPrecio();
+    if (item) { // cambiar variante de una carta guardada
+      actualizarItem(item.uid, (it) => { it.variante = p.variante; it.usd = p.usd; it.historial = (it.historial || []).concat({ t: Date.now(), usd: p.usd }); });
+    }
+  }));
+  const bG = $('[data-acc="guardar"]', destino);
+  if (bG) bG.addEventListener('click', () => { agregarColeccion(carta, p); bG.textContent = '✓ Guardada en tu colección'; bG.disabled = true; });
+  const bQ = $('[data-acc="quitar"]', destino);
+  if (bQ) bQ.addEventListener('click', () => {
+    if (!confirm(`¿Quitar ${carta.name} de tu colección?`)) return;
+    guardar('coleccion', leer('coleccion', []).filter((c) => c.uid !== item.uid));
+    cerrarModal(); pintarColeccion();
+  });
+  // al abrir una carta guardada, su precio guardado también queda al día
+  if (item && p.usd != null) actualizarItem(item.uid, (it) => { if (Math.abs((it.usd ?? 0) - p.usd) > 1e-9) { it.usd = p.usd; it.historial = (it.historial || []).concat({ t: Date.now(), usd: p.usd }).slice(-200); } it.rarity = carta.rarity || it.rarity; });
+}
+
+/* ================= colección ================= */
+function agregarColeccion(carta, p) {
+  const col = leer('coleccion', []);
+  col.unshift({
+    uid: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    id: carta.id, name: carta.name, set: carta.set ? carta.set.name : '', setId: carta.set ? carta.set.id : '',
+    localId: carta.localId, num: `${carta.localId}/${carta.set?.cardCount?.official ?? '?'}`, image: carta.image, rarity: carta.rarity || '',
+    variante: p.variante, usd: p.usd, usdInicial: p.usd, fecha: Date.now(),
+    historial: p.usd != null ? [{ t: Date.now(), usd: p.usd }] : [],
+  });
+  guardar('coleccion', col);
+}
+function actualizarItem(uid, fn) {
+  const col = leer('coleccion', []); const it = col.find((c) => c.uid === uid);
+  if (it) { fn(it); guardar('coleccion', col); }
+}
+const cambioPct = (c) => (c.usd != null && c.usdInicial ? (c.usd / c.usdInicial - 1) * 100 : null);
+function badgeCambio(pct) {
+  if (pct == null) return '';
+  if (Math.abs(pct) < 0.5) return '<span class="igual">= 0%</span>';
   return `<span class="${pct > 0 ? 'sube' : 'baja'}">${pct > 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}%</span>`;
 }
+
+const filtro = { texto: '', orden: leer('orden', 'caras'), set: '', grupo: 0 };
 
 async function pintarColeccion() {
   const col = leer('coleccion', []);
   const tasas = await getTasas();
   const total = col.reduce((s, c) => s + (c.usd || 0), 0);
-  const inicial = col.reduce((s, c) => s + (c.usdInicial || c.usd || 0), 0);
+  const inicial = col.reduce((s, c) => s + (c.usdInicial ?? c.usd ?? 0), 0);
   const ult = leer('ultimaActualizacion', 0);
-  $('#resumen').innerHTML = `<div class="meta">${col.length} carta${col.length === 1 ? '' : 's'} · valor estimado</div>
-    <div class="total">${fmtUSD(total)}</div><div class="precio-cop">${fmtCOP(total * tasas.COP)}</div>
-    ${inicial ? `<div>${cambio({ usd: total, usdInicial: inicial })} <span class="meta">desde que las guardaste</span></div>` : ''}
-    <div class="meta">Precios actualizados: ${ult ? esc(new Date(ult).toLocaleString('es-CO')) : 'aún no'} · se actualizan solos al abrir la app</div>`;
-  $('#lista-coleccion').innerHTML = col.length ? col.map((c) => `
-    <li><img src="${esc(imgCarta(c))}" alt="">
-      <div class="info"><b>${esc(c.name)}</b><span class="meta">${esc(c.set)} · ${esc(c.num)}</span></div>
-      <div class="valor">${fmtUSD(c.usd)}<br><span class="meta">${c.usd != null ? fmtCOP(c.usd * tasas.COP) : ''}</span><br>${cambio(c)}</div>
-      <button class="borrar" data-uid="${esc(c.uid)}" aria-label="Quitar">✕</button></li>`).join('')
-    : '<p class="ayuda">Aún no has guardado cartas. Escanea una y toca «＋ A mi colección».</p>';
-  $('#lista-coleccion').querySelectorAll('.borrar').forEach((b) => b.addEventListener('click', () => {
-    if (!confirm('¿Quitar esta carta de tu colección?')) return;
-    guardar('coleccion', leer('coleccion', []).filter((c) => c.uid !== b.dataset.uid));
-    pintarColeccion();
-  }));
+  $('#resumen').innerHTML = `
+    <div class="meta">${col.length} carta${col.length === 1 ? '' : 's'} · valor de tu colección</div>
+    <div class="total">${fmtUSD(total)}</div>
+    <div class="cop">${fmtCOP(total * tasas.COP)} COP</div>
+    <div class="fila">
+      <span>${inicial ? `${badgeCambio((total / inicial - 1) * 100)} <span class="meta">desde que las guardaste</span>` : ''}</span>
+      <button class="btn secundario chico" id="btn-actualizar">↻ Actualizar precios</button>
+    </div>
+    <div class="meta" style="margin-top:8px">Actualizado: ${ult ? esc(new Date(ult).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })) : 'aún no'} · se actualiza solo al abrir la app</div>`;
+  $('#btn-actualizar').addEventListener('click', () => actualizarPrecios(true));
+
+  // opciones de set y rareza según lo que hay
+  const sets = [...new Map(col.map((c) => [c.setId || c.set, c.set])).entries()].sort((a, b) => String(a[1]).localeCompare(b[1]));
+  $('#col-set').innerHTML = '<option value="">Todos los sets</option>' + sets.map(([k, n]) => `<option value="${esc(k)}"${k === filtro.set ? ' selected' : ''}>${esc(n)}</option>`).join('');
+  $('#col-orden').value = filtro.orden;
+  $('#col-rareza').innerHTML = GRUPOS_RAREZA.map(([n], i) => `<button data-g="${i}" class="${i === filtro.grupo ? 'sel' : ''}">${esc(n)}</button>`).join('');
+  $$('#col-rareza button').forEach((b) => b.addEventListener('click', () => { filtro.grupo = +b.dataset.g; pintarColeccion(); }));
+
+  // filtrar
+  const q = sinTildes(filtro.texto.trim());
+  const [, gMin, gMax] = GRUPOS_RAREZA[filtro.grupo];
+  let lista = col.filter((c) =>
+    (!q || sinTildes(`${c.name} ${c.set} ${c.num}`).includes(q)) &&
+    (!filtro.set || (c.setId || c.set) === filtro.set) &&
+    (filtro.grupo === 0 || (nivelRareza(c.rarity) >= gMin && nivelRareza(c.rarity) <= gMax)));
+  // ordenar
+  const ord = {
+    caras: (a, b) => (b.usd ?? -1) - (a.usd ?? -1),
+    raras: (a, b) => nivelRareza(b.rarity) - nivelRareza(a.rarity) || (b.usd ?? -1) - (a.usd ?? -1),
+    recientes: (a, b) => b.fecha - a.fecha,
+    suben: (a, b) => (cambioPct(b) ?? -1e9) - (cambioPct(a) ?? -1e9),
+    bajan: (a, b) => (cambioPct(a) ?? 1e9) - (cambioPct(b) ?? 1e9),
+    nombre: (a, b) => a.name.localeCompare(b.name, 'es'),
+  }[filtro.orden];
+  lista = lista.sort(ord);
+
+  const cont = $('#lista-coleccion');
+  if (!col.length) { cont.innerHTML = '<div class="vacio">Aún no tienes cartas.<br>Escanea una y toca <b>＋ A mi colección</b>.</div>'; return; }
+  if (!lista.length) { cont.innerHTML = '<div class="vacio">Ninguna carta coincide con el filtro.</div>'; return; }
+  cont.innerHTML = lista.map((c, i) => `
+    <button class="item" data-uid="${esc(c.uid)}">
+      ${filtro.orden === 'caras' && i < 3 && c.usd ? `<span class="rank">#${i + 1}</span>` : ''}
+      <img loading="lazy" src="${esc(imgCarta(c))}" alt="">
+      <div class="n">${esc(c.name)}</div>
+      <div class="s">${esc(c.rarity || c.set)} · ${esc(c.num)}</div>
+      <div class="v"><b>${fmtUSD(c.usd)}</b>${badgeCambio(cambioPct(c))}</div>
+      <div class="s">${c.usd != null ? fmtCOP(c.usd * tasas.COP) + ' COP' : ''}</div>
+    </button>`).join('');
+  $$('.item', cont).forEach((b) => b.addEventListener('click', () => abrirItem(b.dataset.uid)));
+}
+
+function abrirItem(uid) {
+  const it = leer('coleccion', []).find((c) => c.uid === uid); if (!it) return;
+  $('#modal').hidden = false; document.body.style.overflow = 'hidden';
+  abrirCarta({ id: it.id }, $('#modal-cuerpo'), it);
+}
+function cerrarModal() {
+  $('#modal').hidden = true; document.body.style.overflow = '';
+  if ($('#vista-coleccion').classList.contains('activa')) pintarColeccion();
 }
 
 let actualizando = false;
-async function actualizarPrecios() {
+async function actualizarPrecios(manual = false) {
   if (actualizando) return; actualizando = true;
-  const btn = $('#btn-actualizar'); btn.disabled = true; btn.textContent = 'Actualizando…';
+  const btn = $('#btn-actualizar'); if (btn) { btn.disabled = true; btn.textContent = 'Actualizando…'; }
   try {
-    localStorage.removeItem('tasas'); // forzar dólar del día
-    const col = leer('coleccion', []); const tasas = await getTasas();
-    let ok = 0;
-    for (let i = 0; i < col.length; i += 6) { // de a 6 en paralelo
+    const col = leer('coleccion', []); const tasas = await getTasas(true);
+    pintarDolar(tasas);
+    let ok = 0; const nuevos = new Map();
+    for (let i = 0; i < col.length; i += 6) {
       await Promise.all(col.slice(i, i + 6).map(async (c) => {
         try {
           const carta = await getJSON(`${API}/cards/${encodeURIComponent(c.id)}`);
           const p = precioUSD(carta, tasas, c.variante);
-          if (p.usd == null) return;
-          c.usd = p.usd; if (c.usdInicial == null) c.usdInicial = p.usd;
-          c.historial = (c.historial || []).concat({ t: Date.now(), usd: p.usd }).slice(-120);
+          nuevos.set(c.uid, { usd: p.usd, variante: p.variante, rarity: carta.rarity, setId: carta.set?.id });
           ok++;
         } catch { /* se deja el precio anterior */ }
       }));
     }
-    // la lista pudo cambiar mientras tanto: se mezclan los precios por uid
-    const nuevos = new Map(col.map((c) => [c.uid, c]));
-    guardar('coleccion', leer('coleccion', []).map((c) => nuevos.get(c.uid) || c));
-    if (ok || !col.length) guardar('ultimaActualizacion', Date.now());
+    // se mezcla por uid: la colección pudo cambiar mientras se actualizaba
+    const ahora = Date.now();
+    guardar('coleccion', leer('coleccion', []).map((c) => {
+      const n = nuevos.get(c.uid); if (!n) return c;
+      if (n.rarity) c.rarity = n.rarity; if (n.setId) c.setId = n.setId;
+      if (n.usd == null) return c;
+      c.usd = n.usd; c.variante = n.variante; if (c.usdInicial == null) c.usdInicial = n.usd;
+      c.historial = (c.historial || []).concat({ t: ahora, usd: n.usd }).slice(-200);
+      return c;
+    }));
+    if (ok || !col.length) guardar('ultimaActualizacion', ahora);
+    if (manual && col.length && !ok) alert('No se pudo actualizar: revisa tu conexión.');
   } finally {
-    actualizando = false; btn.disabled = false; btn.textContent = '↻ Actualizar precios';
-    if ($('#vista-coleccion').classList.contains('activa')) pintarColeccion();
+    actualizando = false;
+    if ($('#vista-coleccion').classList.contains('activa') && $('#modal').hidden) pintarColeccion();
   }
 }
-
-/* Actualización automática: al abrir la app o volver a ella, si pasaron más de 6 h. */
 function autoActualizar() {
-  if (Date.now() - leer('ultimaActualizacion', 0) > 6 * 36e5 && leer('coleccion', []).length) actualizarPrecios();
+  if (Date.now() - leer('ultimaActualizacion', 0) > HORAS_AUTO * 36e5 && leer('coleccion', []).length) actualizarPrecios();
 }
-document.addEventListener('visibilitychange', () => { if (!document.hidden) autoActualizar(); });
 
-/* ---------- arranque ---------- */
-document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
-  document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('activo', x === t));
-  document.querySelectorAll('.vista').forEach((v) => v.classList.toggle('activa', v.id === `vista-${t.dataset.vista}`));
-  if (t.dataset.vista === 'coleccion') pintarColeccion();
-}));
-$('#btn-foto').addEventListener('click', () => tomarFoto('camara'));
-$('#btn-galeria').addEventListener('click', () => tomarFoto('galeria'));
+function pintarDolar(t) { $('#dolar').innerHTML = `Dólar hoy<br><b>${fmtCOP(t.COP)}</b>`; }
+
+/* ================= arranque ================= */
+$$('.tab').forEach((t) => t.addEventListener('click', () => irA(t.dataset.vista)));
+$('#btn-capturar').addEventListener('click', () => {
+  const f = capturarMarco();
+  if (f) procesarFoto(f); else fotoSistema('camara');
+});
+$('#btn-foto-nativa').addEventListener('click', () => fotoSistema('camara'));
+$('#btn-galeria').addEventListener('click', () => fotoSistema('galeria'));
+$('#btn-reintentar').addEventListener('click', () => { pararCamara(); iniciarCamara(); });
+$('#btn-otra').addEventListener('click', volverACamara);
 $('#input-foto').addEventListener('change', desdeInput);
 $('#input-galeria').addEventListener('change', desdeInput);
-$('#form-buscar').addEventListener('submit', (e) => { e.preventDefault(); busquedaManual($('#txt-buscar').value); });
-$('#btn-actualizar').addEventListener('click', actualizarPrecios);
-getSets().catch(() => {}); getTasas(); autoActualizar();
+$('#form-buscar').addEventListener('submit', (e) => { e.preventDefault(); busquedaManual($('#txt-buscar').value); $('#txt-buscar').blur(); });
+$('#mini-wrap').addEventListener('click', (e) => {
+  const r = $('#mini').getBoundingClientRect();
+  leerToque((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height);
+});
+$('#col-buscar').addEventListener('input', (e) => { filtro.texto = e.target.value; pintarColeccion(); });
+$('#col-orden').addEventListener('change', (e) => { filtro.orden = e.target.value; guardar('orden', filtro.orden); pintarColeccion(); });
+$('#col-set').addEventListener('change', (e) => { filtro.set = e.target.value; pintarColeccion(); });
+$('#modal-cerrar').addEventListener('click', cerrarModal);
+$('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') cerrarModal(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) pararCamara();
+  else { iniciarCamara(); autoActualizar(); }
+});
+// botón "atrás" de Android: cierra el detalle o vuelve a la cámara
+if (nativo && window.Capacitor.Plugins.App) {
+  window.Capacitor.Plugins.App.addListener('backButton', () => {
+    if (!$('#modal').hidden) cerrarModal();
+    else if (!$('#panel-resultado').hidden) volverACamara();
+    else if ($('#vista-coleccion').classList.contains('activa')) irA('escanear');
+    else window.Capacitor.Plugins.App.exitApp();
+  });
+}
+
+$('#btn-exportar').addEventListener('click', exportarColeccion);
+$('#btn-importar').addEventListener('click', () => $('#input-importar').click());
+$('#input-importar').addEventListener('change', importarColeccion);
+
+getTasas().then(pintarDolar);
+getSets().catch(() => {});
+getCodigos();
+Reconocer.getWorker().catch(() => {}); // precarga el lector OCR
+iniciarCamara();
+restaurarColeccion().then(autoActualizar);
