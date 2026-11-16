@@ -24,8 +24,8 @@ input, select { font: inherit; color: var(--texto); }
 /* ---------- barra superior ---------- */
 .barra { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; padding: calc(env(safe-area-inset-top) + 12px) 16px 12px; background: rgba(15, 17, 23, .92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--borde); }
 .marca { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.2rem; letter-spacing: .3px; }
-.logo { width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg, var(--acento), var(--acento-2)); box-shadow: 0 0 0 2px rgba(255, 203, 5, .2); position: relative; }
-.logo::after { content: "$"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--acento-texto); font-weight: 900; font-size: .95rem; }
+.logo { width: 36px; height: 36px; border-radius: 10px; display: block; box-shadow: 0 4px 14px rgba(75, 42, 140, .55); }
+.marca b { color: var(--acento); font-weight: 900; }
 .dolar { font-size: .75rem; color: var(--suave); text-align: right; }
 
 main { padding: 14px 16px; max-width: 680px; margin: 0 auto; }
@@ -48,7 +48,7 @@ main { padding: 14px 16px; max-width: 680px; margin: 0 auto; }
 .btn:disabled { opacity: .6; }
 
 /* ---------- visor de cámara ---------- */
-.visor { position: relative; width: 100%; aspect-ratio: 3 / 4; max-height: 62vh; margin: 0 auto; border-radius: var(--radio); overflow: hidden; background: #000; box-shadow: var(--sombra); }
+.visor { position: relative; width: 100%; aspect-ratio: 3 / 4; max-height: 46vh; margin: 0 auto; border-radius: var(--radio); overflow: hidden; background: #000; box-shadow: var(--sombra); }
 .visor video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .marco { position: absolute; left: 50%; top: 47%; width: 74%; aspect-ratio: 63 / 88; max-height: 86%; transform: translate(-50%, -50%); border-radius: 14px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, .45); }
 .marco span { position: absolute; width: 28px; height: 28px; border: 4px solid var(--acento); }
@@ -136,6 +136,11 @@ th { color: var(--suave); font-weight: 600; font-size: .75rem; }
 .item .v { display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px; gap: 4px; }
 .item .v b { color: var(--verde); font-size: .95rem; }
 .item .rank { position: absolute; top: 12px; left: 12px; background: rgba(0, 0, 0, .7); color: var(--acento); font-weight: 800; font-size: .72rem; padding: 2px 7px; border-radius: 999px; }
+.idiomas-fila { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.idiomas-fila > span { color: var(--suave); font-size: .75rem; text-transform: uppercase; letter-spacing: .8px; font-weight: 700; }
+.idiomas-fila .chips button { font-size: .85rem; padding: 7px 14px; }
+.item .img-wrap { position: relative; }
+.item .idioma-chip { position: absolute; left: 6px; bottom: 6px; background: rgba(0, 0, 0, .75); color: #fff; font-weight: 800; font-size: .7rem; padding: 2px 7px; border-radius: 999px; letter-spacing: .3px; }
 .item .cantidad { position: absolute; top: 12px; right: 12px; min-width: 30px; text-align: center; background: var(--acento); color: var(--acento-texto); font-weight: 900; font-size: .85rem; padding: 3px 8px; border-radius: 999px; box-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
 .item .v small { font-size: .7rem; font-weight: 600; color: var(--suave); }
 .copias { margin: 14px 0 0; padding: 10px 12px; border-radius: 12px; background: rgba(255, 203, 5, .1); border: 1px solid rgba(255, 203, 5, .3); color: var(--acento); font-size: .9rem; }
@@ -147,7 +152,7 @@ th { color: var(--suave); font-weight: 600; font-size: .75rem; }
 .respaldo { margin-top: 26px; }
 
 /* ---------- escaneo de corrido ---------- */
-body.con-resultados .visor { max-height: 44vh; }
+body.con-resultados .visor { max-height: 40vh; }
 #panel-resultado { background: var(--panel); border: 1px solid var(--borde); border-radius: var(--radio); padding: 12px; margin-top: 4px; }
 #panel-resultado .mini { width: 26%; max-width: 120px; }
 .precio-rapido { margin-top: 4px; }

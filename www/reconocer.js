@@ -117,7 +117,7 @@
     for (const m of texto.matchAll(/(?<![A-Za-z0-9])([A-Z0-9]{3})(?:\s+[A-Z]{2})?\s+[0-9OIl]{2,3}\s*[\/\\]?/g)) {
       const c = m[1].replace(/0/g, 'O').replace(/1/g, 'I');
       const id = codigos[m[1]] ? m[1] : codigos[c] ? c : null;
-      if (id && /^(sv|me)/.test(codigos[id])) out.add(id); // solo las series que imprimen el código
+      if (id && /^(sv|me|m\d)/i.test(codigos[id])) out.add(id); // solo las series que imprimen el código
     }
     return [...out];
   }

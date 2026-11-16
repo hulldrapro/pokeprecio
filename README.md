@@ -17,6 +17,15 @@ App Android: le tomas una foto a una carta Pokémon (en español) y te dice cuá
   - **ordenar**: más caras, más raras, recientes, más subieron, más bajaron, nombre; **filtrar** por set y rareza; **buscar por nombre**;
   - guardada en el almacenamiento nativo de Android (Preferences) + **exportar / importar copia** (Documentos).
 
+## Idiomas (🇪🇸 español · 🇺🇸 inglés · 🇯🇵 japonés)
+- Selector "Idioma de tus cartas" en la pantalla de escaneo; cada idioma usa su base de TCGdex (`/v2/es`, `/v2/en`, `/v2/ja`; las japonesas tienen sets y numeración propios).
+- Detección automática en la foto: "PFL **EN** 043/094" o palabras fijas (Weakness/Retreat vs Debilidad/Retirada).
+- Precio: inglés = TCGplayer exacto; español = TCGplayer como referencia; japonés = Cardmarket del producto japonés.
+- Colección: bandera en cada carta, filtro por idioma, y las repetidas solo se agrupan si son del mismo idioma. Tipos y rarezas en inglés/japonés se traducen para filtrar todo junto.
+
+## Logo
+`www/logo.svg` (carta holográfica + moneda). `assets/` tiene los PNG fuente; los íconos y splash de Android se generan con `npx @capacitor/assets generate --android`.
+
 ## Actualizaciones sin perder la colección
 Android solo instala una actualización encima (conservando datos) si va firmada con **la misma llave**.
 - `scripts/crear-llave.py` crea la llave una sola vez (en `%LOCALAPPDATA%\PokePrecio\firma\`, ¡no borrar!) y la sube como secretos del repo (`KEYSTORE_B64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`).

@@ -1,7 +1,17 @@
 /* PokéPrecio — foto de una carta Pokémon → OCR en el celular → TCGdex (español) → precio USD/COP en vivo */
 'use strict';
 
-const API = 'https://api.tcgdex.net/v2/es';
+/* Idioma de las cartas: cada uno tiene su base en TCGdex (nombres, sets y numeración propios en japonés) */
+const IDIOMAS = {
+  es: { bandera: '🇪🇸', nombre: 'Español', corto: 'ES' },
+  en: { bandera: '🇺🇸', nombre: 'Inglés', corto: 'EN' },
+  ja: { bandera: '🇯🇵', nombre: 'Japonés', corto: 'JP' },
+};
+const apiDe = (l) => `https://api.tcgdex.net/v2/${l}`;
+let idioma = IDIOMAS[localStorage.getItem('idioma')] ? localStorage.getItem('idioma') : 'es';
+let API = apiDe(idioma);
+let langEscaneo = idioma; // idioma con el que se identificó la última carta (puede detectarse distinto)
+const bandera = (l) => (IDIOMAS[l || 'es'] || IDIOMAS.es).bandera;
 const TASAS_URL = 'https://open.er-api.com/v6/latest/USD';
 const HORAS_AUTO = 6; // la colección se actualiza sola si pasaron más de estas horas
 const $ = (s, r = document) => r.querySelector(s);
@@ -84,19 +94,46 @@ async function getJSON(url, intentos = 3) {
 }
 
 /* ================= datos con caché ================= */
-let setsP = null;
-function getSets() {
-  if (!setsP) {
-    setsP = (async () => {
-      const c = leer('sets', null);
+const setsP = {};
+function getSets(l = idioma) {
+  if (!setsP[l]) {
+    setsP[l] = (async () => {
+      const clave = `sets-${l}`;
+      const c = leer(clave, null);
       if (c && Date.now() - c.t < 3 * 864e5) return c.d;
-      try { const d = await getJSON(`${API}/sets`); guardar('sets', { t: Date.now(), d }); return d; } catch (e) { if (c) return c.d; throw e; }
-    })().catch((e) => { setsP = null; throw e; });
+      try { const d = await getJSON(`${apiDe(l)}/sets`); guardar(clave, { t: Date.now(), d }); return d; } catch (e) { if (c) return c.d; throw e; }
+    })().catch((e) => { delete setsP[l]; throw e; });
   }
-  return setsP;
+  return setsP[l];
 }
+// código impreso → set. Español e inglés comparten sets (codigos.json); en japonés el código impreso ES el id del set (SV6, SV2a…)
 let codigosP = null;
-const getCodigos = () => (codigosP ||= fetch('codigos.json').then((r) => r.json()).catch(() => ({})));
+async function getCodigos(l = idioma) {
+  if (l === 'ja') { const s = await getSets('ja').catch(() => []); return Object.fromEntries(s.map((x) => [x.id.toUpperCase(), x.id])); }
+  return (codigosP ||= fetch('codigos.json').then((r) => r.json()).catch(() => ({})));
+}
+
+/* Las cartas internacionales nuevas imprimen el idioma junto al código: "PFL EN 043/094",
+   y todas traen palabras fijas grandes: Weakness/Resistance/Retreat (inglés) vs Debilidad/Resistencia/Retirada (español). */
+function detectarIdioma(texto) {
+  const t = String(texto);
+  const m = t.match(/(?<![A-Za-z0-9])[A-Z0-9]{3}\s+(EN|ES)\s+[0-9OIl]{2,3}/);
+  if (m) return m[1].toLowerCase();
+  const n = sinTildes(t);
+  const en = (n.match(/\b(weakness|resistance|retreat|basic|evolves|stage ?[12]|trainer|pokemon tool|supporter)\b/g) || []).length;
+  const es = (n.match(/\b(debilidad|resistencia|retirada|basico|evoluciona|fase ?[12]|entrenador|herramienta|partidario)\b/g) || []).length;
+  if (en >= 2 && en > es * 2) return 'en';
+  if (es >= 2 && es > en * 2) return 'es';
+  return null;
+}
+
+function cambiarIdioma(l) {
+  if (!IDIOMAS[l]) return;
+  idioma = l; API = apiDe(l);
+  try { localStorage.setItem('idioma', l); } catch { /* sin almacenamiento */ }
+  $$('#idiomas button').forEach((b) => b.classList.toggle('sel', b.dataset.l === l));
+  getSets(l).catch(() => {});
+}
 
 async function getTasas(forzar = false) {
   const c = leer('tasas', null);
@@ -133,7 +170,12 @@ function variantesTCG(carta) {
     .sort((a, b) => pos(a.clave) - pos(b.clave));
 }
 
-function precioUSD(carta, tasas, variante) {
+function precioUSD(carta, tasas, variante, lang) {
+  // japonesas: TCGplayer casi nunca las tiene; Cardmarket sí cotiza el producto japonés
+  if (lang === 'ja') {
+    const cm = carta.pricing && carta.pricing.cardmarket;
+    if (cm && (cm.trend || cm.avg)) return { usd: (cm.trend || cm.avg) / tasas.EUR, variante: 'cardmarket', fuente: 'Cardmarket (japonesa)' };
+  }
   const vs = variantesTCG(carta);
   const v = (variante && vs.find((x) => x.clave === variante && (x.market ?? x.mid) != null)) || vs.find((x) => x.market != null) || vs.find((x) => x.mid != null);
   if (v) return { usd: v.market ?? v.mid, variante: v.clave, fuente: 'TCGplayer' };
@@ -150,6 +192,11 @@ const RAREZA = [
   ['Ultra Rara', 7], ['Rara Ilustración', 7], ['Entrenador de arte completo', 7], ['Shiny rare V', 7], ['Shiny rare VMAX', 7], ['Rara Ultra Variocolor', 7], ['One Shiny', 6], ['Two Shiny', 7],
   ['Rara Secreta', 8], ['Rara Híper', 8], ['Rara Ilustración Especial', 9], ['Mega Hiper Rara', 9], ['Mega Attack Rare', 8], ['Rara Blanca y Negra', 8],
   ['Dos Estrellas', 8], ['Tres Estrellas', 9], ['Corona', 10],
+  // rarezas en inglés (cartas EN y JA)
+  ['Common', 1], ['Rare', 3], ['Rare Holo', 4], ['Double rare', 5], ['ACE SPEC Rare', 5], ['Radiant Rare', 5], ['Rare Holo V', 5],
+  ['Rare Holo VMAX', 6], ['Rare Holo VSTAR', 6], ['Amazing Rare', 6], ['Shiny Rare', 6], ['Ultra Rare', 7], ['Illustration rare', 7],
+  ['Shiny Ultra Rare', 7], ['Full Art Trainer', 7], ['Secret Rare', 8], ['Hyper rare', 8], ['Black White Rare', 8],
+  ['Special illustration rare', 9], ['Mega Hyper Rare', 9],
 ];
 const nivelRareza = (r) => { const x = RAREZA.find(([n]) => sinTildes(n) === sinTildes(r)); return x ? x[1] : 0; };
 const GRUPOS_RAREZA = [['Todas', 0, 99], ['Comunes', 1, 2], ['Raras', 3, 4], ['Dobles / V / ex', 5, 6], ['Ultra / Ilustración', 7, 7], ['Secretas / Híper', 8, 10]];
@@ -267,7 +314,7 @@ async function pintarSesion(nueva) {
   $('#lista-sesion').innerHTML = sesion.map((e, i) => `
     <li class="${e === nueva ? 'nueva' : ''}" data-i="${i}">
       <img src="${esc(imgCarta(e.carta))}" alt="" data-ver>
-      <div class="info" data-ver><b>${esc(e.carta.name)}</b><span class="meta">${esc(e.carta.set?.name || '')} · ${esc(e.carta.localId)}</span></div>
+      <div class="info" data-ver><b>${bandera(e.carta._lang)} ${esc(e.carta.name)}</b><span class="meta">${esc(e.carta.set?.name || '')} · ${esc(e.carta.localId)}</span></div>
       <div class="valor"><b>${fmtUSD(e.p.usd)}</b><br><span class="meta">${e.p.usd != null ? fmtCOP(e.p.usd * tasas.COP) : ''}</span></div>
       <button class="mas" data-mas ${e.uidCol ? 'disabled aria-label="Guardada"' : 'aria-label="Guardar en mi colección"'}>${e.uidCol ? '✓' : '＋'}</button>
     </li>`).join('');
@@ -301,7 +348,12 @@ async function procesarFoto(src) {
       progreso: (i, n, fase) => { if (id === busquedaId) estado(progresoHTML(fase === 'nombre' ? 'Leyendo el nombre' : 'Leyendo el número de la carta', i, n + 1)); },
     });
     if (id !== busquedaId) return;
-    await resolver(res, id, sets, codigos);
+    // si la carta dice "EN"/"ES" junto al código del set, manda eso sobre el idioma elegido
+    const det = idioma !== 'ja' ? detectarIdioma(res.texto) : null;
+    if (det && det !== idioma) {
+      res.aviso = `Detecté una carta en <b>${IDIOMAS[det].nombre.toLowerCase()}</b> ${bandera(det)}`;
+      await resolver(res, id, await getSets(det), await getCodigos(det), det);
+    } else await resolver(res, id, sets, codigos, idioma);
   } catch (e) {
     console.error(e);
     if (id === busquedaId) estado(`Error leyendo la foto: ${esc(e.message || e)}. ¿Tienes internet?`, 'error');
@@ -315,21 +367,23 @@ async function leerToque(fx, fy) {
   $('#candidatos').innerHTML = ''; $('#titulo-cand').hidden = true; $('#detalle').innerHTML = '';
   estado('<span class="cargando">Leyendo la zona que tocaste</span>');
   try {
-    const [sets, codigos] = await Promise.all([getSets(), getCodigos()]);
+    const lang = langEscaneo;
+    const [sets, codigos] = await Promise.all([getSets(lang), getCodigos(lang)]);
     const totales = new Set(sets.map((s) => s.cardCount && s.cardCount.official));
     const res = await Reconocer.reconocerZona(imgActual, fx, fy, { totales, codigos });
     if (id !== busquedaId) return;
-    await resolver(res, id, sets, codigos);
+    await resolver(res, id, sets, codigos, lang);
   } catch (e) {
     if (id === busquedaId) estado(`Error: ${esc(e.message || e)}`, 'error');
   }
 }
 
-async function resolver(res, id, sets, codigos) {
+async function resolver(res, id, sets, codigos, lang = idioma) {
+  langEscaneo = lang;
   $('#ocr-texto').textContent = res.texto; $('#ocr-detalle').hidden = !res.texto;
   const leido = [...res.codigos.map((c) => `${c}`), ...res.lecturas.filter((l) => l.votos).slice(0, 2).map((l) => `${l.num}/${l.total}`)].join(' · ');
-  estado(`<span class="cargando">Buscando ${esc(leido || 'la carta')}</span>`);
-  let ranking = await Reconocer.identificar(res, { api: API, sets, codigos, getJSON });
+  estado(`<span class="cargando">Buscando ${esc(leido || 'la carta')} ${bandera(lang)}</span>`);
+  let ranking = await Reconocer.identificar(res, { api: apiDe(lang), sets, codigos, getJSON });
   if (id !== busquedaId) return;
 
   if (!ranking.length) {
@@ -355,8 +409,9 @@ async function resolver(res, id, sets, codigos) {
   const seguro = ranking.length === 1 || ranking[0].puntaje - ranking[1].puntaje >= 40;
   seguroActual = seguro;
   $('#ayuda-toque').hidden = false;
-  estado(seguro ? `✅ <b>${esc(cartas[0].name)}</b> · ${esc(cartas[0].set?.name || '')}`
-    : `Encontré ${cartas.length} posibles. La más probable está marcada; si no es, toca la tuya (fíjate en el símbolo del set).`);
+  cartas.forEach((c) => { c._lang = lang; });
+  estado((res.aviso ? `<div class="meta">${res.aviso}</div>` : '') + (seguro ? `✅ <b>${esc(cartas[0].name)}</b> ${bandera(lang)} · ${esc(cartas[0].set?.name || '')}`
+    : `Encontré ${cartas.length} posibles. La más probable está marcada; si no es, toca la tuya (fíjate en el símbolo del set).`));
   mostrarCandidatos(cartas, seguro ? 'Otras coincidencias' : '¿Cuál es tu carta?', 0);
   abrirCarta(cartas[0], $('#detalle'), null, { escaneo: true });
 }
@@ -408,6 +463,7 @@ async function buscarPorNombre(q) {
 async function busquedaManual(q) {
   q = q.trim(); if (!q) return;
   const id = ++busquedaId; fotoId++;
+  langEscaneo = idioma; // a mano se busca en el idioma elegido
   mostrarResultado(); $('#mini-wrap').hidden = true; $('#ayuda-toque').hidden = true; imgActual = null;
   const mNum = q.match(/^\s*(TG|GG|SV|RC)?\s*(\d{1,3})\s*\/\s*(TG|GG|SV|RC)?\s*(\d{1,3})\s*$/i);
   const mCod = q.toUpperCase().match(/^\s*([A-Z0-9]{2,4})\s+(?:[A-Z]{2}\s+)?(\d{1,3})(?:\s*\/\s*\d{1,3})?\s*$/);
@@ -462,14 +518,16 @@ function mostrarCandidatos(cartas, titulo, sel = -1) {
    opts.elegida: el usuario tocó esta candidata.  opts.soloVer: ver una carta de la lista de la sesión. */
 async function abrirCarta(c, destino, item = null, opts = {}) {
   const id = busquedaId;
+  const lang = c._lang || (item && item.idioma) || langEscaneo || 'es';
   destino.innerHTML = '<div class="carta"><span class="cargando">Consultando precio actual</span></div>';
   try {
-    const carta = c.pricing !== undefined && c.set?.cardCount ? c : await getJSON(`${API}/cards/${encodeURIComponent(c.id)}`);
+    const carta = c.pricing !== undefined && c.set?.cardCount ? c : await getJSON(`${apiDe(lang)}/cards/${encodeURIComponent(c.id)}`);
+    carta._lang = lang;
     const tasas = await getTasas();
     let entrada = null;
     if (opts.escaneo && id === busquedaId) {
-      const p = precioUSD(carta, tasas);
-      if (opts.elegida || !seguroActual) estado(`✅ <b>${esc(carta.name)}</b> · ${esc(carta.set?.name || '')}`);
+      const p = precioUSD(carta, tasas, null, lang);
+      if (opts.elegida || !seguroActual) estado(`✅ <b>${esc(carta.name)}</b> ${bandera(lang)} · ${esc(carta.set?.name || '')}`);
       precioRapido(carta, p, tasas);
       entrada = registrarEscaneo(carta, p, opts.elegida);
     } else if (opts.soloVer) entrada = sesion.find((e) => e.carta.id === carta.id) || null;
@@ -500,7 +558,7 @@ function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
   const actualizado = carta.pricing?.tcgplayer?.updated || cm?.updated;
 
   const pintarPrecio = () => {
-    const p = precioUSD(carta, tasas, variante);
+    const p = precioUSD(carta, tasas, variante, carta._lang);
     variante = p.variante;
     $('.precio', destino).innerHTML = p.usd != null
       ? `<div class="usd">${fmtUSD(p.usd)}</div><div class="cop">${fmtCOP(p.usd * tasas.COP)} COP</div><div class="fuente">${esc(p.fuente)} · ${esc(NOMBRE_VARIANTE[p.variante] || p.variante)}</div>`
@@ -517,7 +575,7 @@ function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
         <h2>${esc(carta.name)}</h2>
         <div class="meta">
           ${set.symbol ? `<img class="simbolo" src="${esc(set.symbol)}.webp" alt="" onerror="this.remove()">` : ''}${esc(set.name || '')}<br>
-          Nº ${esc(carta.localId)}/${esc(oficial)}
+          Nº ${esc(carta.localId)}/${esc(oficial)} · ${bandera(carta._lang)} ${esc(IDIOMAS[carta._lang || 'es'].nombre)}
         </div>
         ${carta.rarity ? `<span class="chip-rareza">${esc(carta.rarity)}</span>` : ''}
         <div class="precio"></div>
@@ -538,7 +596,10 @@ function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
     ${item && item.copias > 1 ? `<p class="copias">Tienes <b>${item.copias} copias</b> de esta carta</p>` : ''}
     ${item ? `<div class="botones"><button class="peligro" data-acc="quitar">${item.copias > 1 ? 'Quitar una copia' : 'Quitar de mi colección'}</button></div>` : ''}
     <p class="nota">Precio consultado ahora mismo${actualizado ? ` (TCGdex lo actualizó el ${esc(new Date(actualizado).toLocaleDateString('es-CO'))})` : ''}.
-    TCGplayer cotiza la versión en inglés; las cartas en español suelen venderse algo más baratas. Cardmarket mezcla idiomas.</p>
+    ${{
+    en: 'Carta en inglés: el precio de TCGplayer corresponde exactamente a esta versión.',
+    ja: 'Carta japonesa: precio de Cardmarket del producto japonés (en euros, convertido). TCGplayer casi no vende japonesas.',
+  }[carta._lang] || 'TCGplayer cotiza la versión en inglés; las cartas en español suelen venderse algo más baratas. Cardmarket mezcla idiomas.'}</p>
   </div>`;
 
   let p = pintarPrecio();
@@ -572,7 +633,7 @@ function agregarColeccion(carta, p) {
     uid: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     id: carta.id, name: carta.name, set: carta.set ? carta.set.name : '', setId: carta.set ? carta.set.id : '',
     localId: carta.localId, num: `${carta.localId}/${carta.set?.cardCount?.official ?? '?'}`, image: carta.image, rarity: carta.rarity || '',
-    types: carta.types || [], category: carta.category || '',
+    types: carta.types || [], category: carta.category || '', idioma: carta._lang || 'es',
     variante: p.variante, usd: p.usd, usdInicial: p.usd, fecha: Date.now(),
     historial: p.usd != null ? [{ t: Date.now(), usd: p.usd }] : [],
   });
@@ -590,13 +651,22 @@ function badgeCambio(pct) {
   return `<span class="${pct > 0 ? 'sube' : 'baja'}">${pct > 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}%</span>`;
 }
 
-const filtro = { texto: '', orden: leer('orden', 'caras'), set: '', grupo: 0, tipo: '' };
+const filtro = { texto: '', orden: leer('orden', 'caras'), set: '', grupo: 0, tipo: '', idioma: '' };
+// copias "iguales" = misma carta, misma variante y mismo idioma
+const claveCopia = (c) => `${c.id}|${c.variante || ''}|${c.idioma || 'es'}`;
+// tipos de las cartas japonesas → nombre en español, para filtrar todo junto
+const TIPO_JA = {
+  草: 'Planta', 炎: 'Fuego', 水: 'Agua', 雷: 'Rayo', 超: 'Psíquico', 闘: 'Lucha', 悪: 'Oscura', 鋼: 'Metálica', ドラゴン: 'Dragón', フェアリー: 'Hada', 無色: 'Incolora', トレーナーズ: 'Entrenador', エネルギー: 'Energía',
+  // las cartas en inglés (y algunas japonesas) traen el tipo en inglés
+  Grass: 'Planta', Fire: 'Fuego', Water: 'Agua', Lightning: 'Rayo', Psychic: 'Psíquico', Fighting: 'Lucha', Darkness: 'Oscura', Metal: 'Metálica', Dragon: 'Dragón', Fairy: 'Hada', Colorless: 'Incolora', Trainer: 'Entrenador', Energy: 'Energía',
+};
 
 /* Tipo de la carta: el tipo del Pokémon (Fuego, Agua…) o la categoría (Entrenador, Energía) */
 const TIPO_ICONO = { Fuego: '🔥', Agua: '💧', Planta: '🌿', Rayo: '⚡','Psíquico': '🔮', Lucha: '👊', Oscura: '🌑', Metálica: '⚙️', Dragón: '🐉', Hada: '🧚', Incolora: '⚪', Entrenador: '🎒', Energía: '✴️' };
 function tiposDe(c) {
-  if (c.types && c.types.length) return c.types;
-  if (c.category && !/pok/i.test(c.category)) return [c.category];
+  const norm = (t) => TIPO_JA[t] || t;
+  if (c.types && c.types.length) return c.types.map(norm);
+  if (c.category && !/pok|ポケモン/i.test(sinTildes(c.category))) return [norm(c.category)];
   return [];
 }
 
@@ -607,7 +677,7 @@ async function pintarColeccion() {
   const inicial = col.reduce((s, c) => s + (c.usdInicial ?? c.usd ?? 0), 0);
   const ult = leer('ultimaActualizacion', 0);
   $('#resumen').innerHTML = `
-    <div class="meta">${col.length} carta${col.length === 1 ? '' : 's'}${(() => { const d = new Set(col.map((c) => `${c.id}|${c.variante || ''}`)).size; return d < col.length ? ` (${d} distintas)` : ''; })()} · valor de tu colección</div>
+    <div class="meta">${col.length} carta${col.length === 1 ? '' : 's'}${(() => { const d = new Set(col.map(claveCopia)).size; return d < col.length ? ` (${d} distintas)` : ''; })()} · valor de tu colección</div>
     <div class="total">${fmtUSD(total)}</div>
     <div class="cop">${fmtCOP(total * tasas.COP)} COP</div>
     <div class="fila">
@@ -628,6 +698,11 @@ async function pintarColeccion() {
   $('#col-tipo').innerHTML = [['', 'Todos los tipos'], ...tipos.map((t) => [t, `${TIPO_ICONO[t] || '•'} ${t}`])]
     .map(([v, n]) => `<button data-t="${esc(v)}" class="${v === filtro.tipo ? 'sel' : ''}">${esc(n)}</button>`).join('');
   $$('#col-tipo button').forEach((b) => b.addEventListener('click', () => { filtro.tipo = b.dataset.t; pintarColeccion(); }));
+  const idiomasCol = Object.keys(IDIOMAS).filter((l) => col.some((c) => (c.idioma || 'es') === l));
+  $('#col-idioma').hidden = idiomasCol.length < 2; // solo si tienes cartas de más de un idioma
+  $('#col-idioma').innerHTML = [['', 'Todos los idiomas'], ...idiomasCol.map((l) => [l, `${IDIOMAS[l].bandera} ${IDIOMAS[l].nombre}`])]
+    .map(([v, n]) => `<button data-l="${v}" class="${v === filtro.idioma ? 'sel' : ''}">${esc(n)}</button>`).join('');
+  $$('#col-idioma button').forEach((b) => b.addEventListener('click', () => { filtro.idioma = b.dataset.l; pintarColeccion(); }));
 
   // filtrar
   const q = sinTildes(filtro.texto.trim());
@@ -636,6 +711,7 @@ async function pintarColeccion() {
     (!q || sinTildes(`${c.name} ${c.set} ${c.num}`).includes(q)) &&
     (!filtro.set || (c.setId || c.set) === filtro.set) &&
     (!filtro.tipo || tiposDe(c).includes(filtro.tipo)) &&
+    (!filtro.idioma || (c.idioma || 'es') === filtro.idioma) &&
     (filtro.grupo === 0 || (nivelRareza(c.rarity) >= gMin && nivelRareza(c.rarity) <= gMax)));
   // ordenar
   const ord = {
@@ -651,17 +727,20 @@ async function pintarColeccion() {
   const cont = $('#lista-coleccion');
   if (!col.length) { cont.innerHTML = '<div class="vacio">Aún no tienes cartas.<br>Escanea una y toca <b>＋ A mi colección</b>.</div>'; return; }
   if (!lista.length) { cont.innerHTML = '<div class="vacio">Ninguna carta coincide con el filtro.</div>'; return; }
-  // las copias repetidas (misma carta y misma variante) se agrupan en una casilla con "×N"
+  // las copias repetidas (misma carta, variante e idioma) se agrupan en una casilla con "×N"
   const grupos = new Map();
   for (const c of lista) {
-    const k = `${c.id}|${c.variante || ''}`;
+    const k = claveCopia(c);
     if (grupos.has(k)) grupos.get(k).n++; else grupos.set(k, { c, n: 1 });
   }
   cont.innerHTML = [...grupos.values()].map(({ c, n }, i) => `
     <button class="item" data-uid="${esc(c.uid)}">
       ${filtro.orden === 'caras' && i < 3 && c.usd ? `<span class="rank">#${i + 1}</span>` : ''}
       ${n > 1 ? `<span class="cantidad" aria-label="${n} copias">×${n}</span>` : ''}
-      <img loading="lazy" src="${esc(imgCarta(c))}" alt="">
+      <div class="img-wrap">
+        <img loading="lazy" src="${esc(imgCarta(c))}" alt="">
+        <span class="idioma-chip" title="${esc(IDIOMAS[c.idioma || 'es'].nombre)}">${bandera(c.idioma)} ${IDIOMAS[c.idioma || 'es'].corto}</span>
+      </div>
       <div class="n">${esc(c.name)}</div>
       <div class="s">${esc(c.rarity || c.set)} · ${esc(c.num)}</div>
       <div class="v"><b>${fmtUSD(c.usd)}${n > 1 ? '<small> c/u</small>' : ''}</b>${badgeCambio(cambioPct(c))}</div>
@@ -673,7 +752,7 @@ async function pintarColeccion() {
 function abrirItem(uid) {
   const col = leer('coleccion', []);
   const it = col.find((c) => c.uid === uid); if (!it) return;
-  const copias = col.filter((c) => c.id === it.id && (c.variante || '') === (it.variante || '')).length;
+  const copias = col.filter((c) => claveCopia(c) === claveCopia(it)).length;
   $('#modal').hidden = false; document.body.style.overflow = 'hidden';
   abrirCarta({ id: it.id }, $('#modal-cuerpo'), { ...it, copias });
 }
@@ -693,8 +772,8 @@ async function actualizarPrecios(manual = false) {
     for (let i = 0; i < col.length; i += 6) {
       await Promise.all(col.slice(i, i + 6).map(async (c) => {
         try {
-          const carta = await getJSON(`${API}/cards/${encodeURIComponent(c.id)}`);
-          const p = precioUSD(carta, tasas, c.variante);
+          const carta = await getJSON(`${apiDe(c.idioma || 'es')}/cards/${encodeURIComponent(c.id)}`);
+          const p = precioUSD(carta, tasas, c.variante, c.idioma);
           nuevos.set(c.uid, { usd: p.usd, variante: p.variante, rarity: carta.rarity, setId: carta.set?.id, types: carta.types, category: carta.category });
           ok++;
         } catch { /* se deja el precio anterior */ }
@@ -733,6 +812,8 @@ $('#btn-capturar').addEventListener('click', () => {
 $('#btn-foto-nativa').addEventListener('click', () => fotoSistema('camara'));
 $('#btn-galeria').addEventListener('click', () => fotoSistema('galeria'));
 $('#btn-reintentar').addEventListener('click', () => { pararCamara(); iniciarCamara(); });
+$('#idiomas').innerHTML = Object.entries(IDIOMAS).map(([l, d]) => `<button data-l="${l}" class="${l === idioma ? 'sel' : ''}">${d.bandera} ${d.nombre}</button>`).join('');
+$$('#idiomas button').forEach((b) => b.addEventListener('click', () => cambiarIdioma(b.dataset.l)));
 $('#auto-guardar').checked = leer('autoGuardar', false);
 $('#auto-guardar').addEventListener('change', (e) => guardar('autoGuardar', e.target.checked));
 $('#btn-guardar-todas').addEventListener('click', () => { sesion.forEach((e) => { if (!e.uidCol) e.uidCol = agregarColeccion(e.carta, e.p); }); pintarSesion(); });
