@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PokéPrecio</string>
+    <string name="title_activity_main">PokéPrecio</string>
+    <string name="package_name">com.hulldrapro.pokeprecio</string>
+    <string name="custom_url_scheme">com.hulldrapro.pokeprecio</string>
+</resources>

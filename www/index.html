@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#14161c">
+  <title>PokéPrecio</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>PokéPrecio</h1>
+    <nav>
+      <button class="tab activo" data-vista="escanear">Escanear</button>
+      <button class="tab" data-vista="coleccion">Mi colección</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ESCANEAR -->
+    <section id="vista-escanear" class="vista activa">
+      <div class="acciones">
+        <button id="btn-foto" class="primario">📷 Tomar foto</button>
+        <button id="btn-galeria" class="secundario">🖼️ Galería</button>
+        <input id="input-foto" type="file" accept="image/*" capture="environment" hidden>
+        <input id="input-galeria" type="file" accept="image/*" hidden>
+      </div>
+      <p class="ayuda">Encuadra la carta completa, derecha y con buena luz. La app lee el <b>número</b> de abajo (ej. <b>025/198</b>) y el nombre.</p>
+
+      <form id="form-buscar" class="buscar">
+        <input id="txt-buscar" type="search" placeholder="O escribe: 25/198 o Charizard" autocomplete="off">
+        <button type="submit" class="secundario">Buscar</button>
+      </form>
+
+      <div id="estado" class="estado" hidden></div>
+      <img id="vista-previa" class="previa" alt="" hidden>
+      <details id="ocr-detalle" hidden><summary>Texto leído</summary><pre id="ocr-texto"></pre></details>
+
+      <div id="candidatos" class="rejilla"></div>
+      <div id="detalle"></div>
+    </section>
+
+    <!-- COLECCIÓN -->
+    <section id="vista-coleccion" class="vista">
+      <div class="resumen" id="resumen"></div>
+      <div class="acciones">
+        <button id="btn-actualizar" class="secundario">↻ Actualizar precios</button>
+      </div>
+      <ul id="lista-coleccion" class="lista"></ul>
+    </section>
+  </main>
+
+  <script src="lib/tesseract.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
