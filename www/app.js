@@ -529,7 +529,7 @@ function badgeCambio(pct) {
 const filtro = { texto: '', orden: leer('orden', 'caras'), set: '', grupo: 0, tipo: '' };
 
 /* Tipo de la carta: el tipo del Pokémon (Fuego, Agua…) o la categoría (Entrenador, Energía) */
-const TIPO_ICONO = { Fuego: '🔥', Agua: '💧', Planta: '🌿', 'Rayo': '⚡', 'Eléctrico': '⚡', 'Psíquico': '🔮', Lucha: '👊', Oscura: '🌑', Metálica: '⚙️', Dragón: '🐉', Hada: '🧚', Incolora: '⚪', Entrenador: '🎒', Energía: '✴️' };
+const TIPO_ICONO = { Fuego: '🔥', Agua: '💧', Planta: '🌿', Rayo: '⚡','Psíquico': '🔮', Lucha: '👊', Oscura: '🌑', Metálica: '⚙️', Dragón: '🐉', Hada: '🧚', Incolora: '⚪', Entrenador: '🎒', Energía: '✴️' };
 function tiposDe(c) {
   if (c.types && c.types.length) return c.types;
   if (c.category && !/pok/i.test(c.category)) return [c.category];
