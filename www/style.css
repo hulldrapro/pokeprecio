@@ -199,6 +199,7 @@ body.con-resultados .visor { max-height: 40vh; }
 .set-cab { display: flex; align-items: center; gap: 10px; }
 .set-cab img { width: 64px; max-height: 36px; object-fit: contain; }
 .set-cab > div { flex: 1; min-width: 0; }
+.logo-set { display: block; max-width: 70%; max-height: 90px; margin: 4px auto 12px; object-fit: contain; }
 .set-pct { font-weight: 900; font-size: 1.2rem; color: var(--acento); }
 .set-item .progreso, .carta .progreso { margin: 0; height: 8px; }
 .rejilla-chica { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 12px; }

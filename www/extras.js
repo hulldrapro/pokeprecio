@@ -255,12 +255,14 @@ async function pintarSets() {
     const g = grupos.get(k); g.nums.add(String(parseInt(c.localId, 10) || c.localId)); g.valor += c.usd || 0; g.n++;
   }
   const lista = [...grupos.values()];
+  const setsEn = await getSets('en').catch(() => []); // logos originales en inglés
   for (const l of [...new Set(lista.map((g) => g.idioma))]) {
     const sets = await getSets(l).catch(() => []);
     for (const g of lista.filter((x) => x.idioma === l)) {
       const s = sets.find((x) => x.id === g.setId);
       g.oficial = s?.cardCount?.official || s?.cardCount?.total || 0;
-      g.logo = s?.logo || null; g.nombre = nombreSet({ setId: g.setId, set: s?.name || g.nombre, idioma: g.idioma });
+      const en = l !== 'ja' ? setsEn.find((x) => x.id === g.setId) : null;
+      g.logo = en?.logo || s?.logo || null; g.nombre = nombreSet({ setId: g.setId, set: s?.name || g.nombre, idioma: g.idioma });
       g.tengo = [...g.nums].filter((n) => /^\d+$/.test(n) && +n <= g.oficial).length;
       g.pct = g.oficial ? g.tengo / g.oficial * 100 : 0;
     }
@@ -290,6 +292,7 @@ async function abrirSet(g, soloFaltan = false) {
     const cartas = (set.cards || []).filter((c) => !soloFaltan || !tengo.has(c.id));
     cuerpo.innerHTML = `
       <div class="carta">
+        ${g.logo ? `<img class="logo-set" src="${esc(g.logo)}.webp" alt="" onerror="this.remove()">` : ''}
         <h2>${esc(nombreSet({ setId: g.setId, set: set.name, idioma: g.idioma }))} ${bandera(g.idioma)}</h2>
         <div class="progreso"><div style="width:${Math.min(100, g.pct)}%"></div></div>
         <p class="meta">Tienes ${g.tengo} de ${g.oficial} (${Math.floor(g.pct)}%) · ${(set.cards || []).length - [...tengo].length} te faltan en total (incluye secretas)</p>
