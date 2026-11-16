@@ -535,7 +535,8 @@ function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
       ${cm['trend-holo'] ? `<tr><td>Holo / reverse</td><td>${fmtEUR(cm['trend-holo'])}</td><td>${fmtEUR(cm['avg30-holo'])}</td><td>${fmtCOP(cm['trend-holo'] / tasas.EUR * tasas.COP)}</td></tr>` : ''}
     </tbody></table>` : ''}
     ${item ? `<p class="titulo-sec">Historial de precio</p><div class="historia">${graficoHistoria(item.historial)}</div>` : ''}
-    ${item ? '<div class="botones"><button class="peligro" data-acc="quitar">Quitar de mi colección</button></div>' : ''}
+    ${item && item.copias > 1 ? `<p class="copias">Tienes <b>${item.copias} copias</b> de esta carta</p>` : ''}
+    ${item ? `<div class="botones"><button class="peligro" data-acc="quitar">${item.copias > 1 ? 'Quitar una copia' : 'Quitar de mi colección'}</button></div>` : ''}
     <p class="nota">Precio consultado ahora mismo${actualizado ? ` (TCGdex lo actualizó el ${esc(new Date(actualizado).toLocaleDateString('es-CO'))})` : ''}.
     TCGplayer cotiza la versión en inglés; las cartas en español suelen venderse algo más baratas. Cardmarket mezcla idiomas.</p>
   </div>`;
@@ -556,7 +557,7 @@ function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
   });
   const bQ = $('[data-acc="quitar"]', destino);
   if (bQ) bQ.addEventListener('click', () => {
-    if (!confirm(`¿Quitar ${carta.name} de tu colección?`)) return;
+    if (!confirm(item.copias > 1 ? `¿Quitar una copia de ${carta.name}? (te quedan ${item.copias - 1})` : `¿Quitar ${carta.name} de tu colección?`)) return;
     guardar('coleccion', leer('coleccion', []).filter((c) => c.uid !== item.uid));
     cerrarModal(); pintarColeccion();
   });
@@ -606,7 +607,7 @@ async function pintarColeccion() {
   const inicial = col.reduce((s, c) => s + (c.usdInicial ?? c.usd ?? 0), 0);
   const ult = leer('ultimaActualizacion', 0);
   $('#resumen').innerHTML = `
-    <div class="meta">${col.length} carta${col.length === 1 ? '' : 's'} · valor de tu colección</div>
+    <div class="meta">${col.length} carta${col.length === 1 ? '' : 's'}${(() => { const d = new Set(col.map((c) => `${c.id}|${c.variante || ''}`)).size; return d < col.length ? ` (${d} distintas)` : ''; })()} · valor de tu colección</div>
     <div class="total">${fmtUSD(total)}</div>
     <div class="cop">${fmtCOP(total * tasas.COP)} COP</div>
     <div class="fila">
@@ -650,22 +651,31 @@ async function pintarColeccion() {
   const cont = $('#lista-coleccion');
   if (!col.length) { cont.innerHTML = '<div class="vacio">Aún no tienes cartas.<br>Escanea una y toca <b>＋ A mi colección</b>.</div>'; return; }
   if (!lista.length) { cont.innerHTML = '<div class="vacio">Ninguna carta coincide con el filtro.</div>'; return; }
-  cont.innerHTML = lista.map((c, i) => `
+  // las copias repetidas (misma carta y misma variante) se agrupan en una casilla con "×N"
+  const grupos = new Map();
+  for (const c of lista) {
+    const k = `${c.id}|${c.variante || ''}`;
+    if (grupos.has(k)) grupos.get(k).n++; else grupos.set(k, { c, n: 1 });
+  }
+  cont.innerHTML = [...grupos.values()].map(({ c, n }, i) => `
     <button class="item" data-uid="${esc(c.uid)}">
       ${filtro.orden === 'caras' && i < 3 && c.usd ? `<span class="rank">#${i + 1}</span>` : ''}
+      ${n > 1 ? `<span class="cantidad" aria-label="${n} copias">×${n}</span>` : ''}
       <img loading="lazy" src="${esc(imgCarta(c))}" alt="">
       <div class="n">${esc(c.name)}</div>
       <div class="s">${esc(c.rarity || c.set)} · ${esc(c.num)}</div>
-      <div class="v"><b>${fmtUSD(c.usd)}</b>${badgeCambio(cambioPct(c))}</div>
-      <div class="s">${c.usd != null ? fmtCOP(c.usd * tasas.COP) + ' COP' : ''}</div>
+      <div class="v"><b>${fmtUSD(c.usd)}${n > 1 ? '<small> c/u</small>' : ''}</b>${badgeCambio(cambioPct(c))}</div>
+      <div class="s">${c.usd != null ? fmtCOP(c.usd * n * tasas.COP) + ' COP' + (n > 1 ? ` las ${n}` : '') : ''}</div>
     </button>`).join('');
   $$('.item', cont).forEach((b) => b.addEventListener('click', () => abrirItem(b.dataset.uid)));
 }
 
 function abrirItem(uid) {
-  const it = leer('coleccion', []).find((c) => c.uid === uid); if (!it) return;
+  const col = leer('coleccion', []);
+  const it = col.find((c) => c.uid === uid); if (!it) return;
+  const copias = col.filter((c) => c.id === it.id && (c.variante || '') === (it.variante || '')).length;
   $('#modal').hidden = false; document.body.style.overflow = 'hidden';
-  abrirCarta({ id: it.id }, $('#modal-cuerpo'), it);
+  abrirCarta({ id: it.id }, $('#modal-cuerpo'), { ...it, copias });
 }
 function cerrarModal() {
   $('#modal').hidden = true; document.body.style.overflow = '';

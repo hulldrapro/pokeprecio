@@ -136,6 +136,9 @@ th { color: var(--suave); font-weight: 600; font-size: .75rem; }
 .item .v { display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px; gap: 4px; }
 .item .v b { color: var(--verde); font-size: .95rem; }
 .item .rank { position: absolute; top: 12px; left: 12px; background: rgba(0, 0, 0, .7); color: var(--acento); font-weight: 800; font-size: .72rem; padding: 2px 7px; border-radius: 999px; }
+.item .cantidad { position: absolute; top: 12px; right: 12px; min-width: 30px; text-align: center; background: var(--acento); color: var(--acento-texto); font-weight: 900; font-size: .85rem; padding: 3px 8px; border-radius: 999px; box-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
+.item .v small { font-size: .7rem; font-weight: 600; color: var(--suave); }
+.copias { margin: 14px 0 0; padding: 10px 12px; border-radius: 12px; background: rgba(255, 203, 5, .1); border: 1px solid rgba(255, 203, 5, .3); color: var(--acento); font-size: .9rem; }
 .sube { color: var(--verde); font-weight: 700; font-size: .75rem; }
 .baja { color: var(--rojo); font-weight: 700; font-size: .75rem; }
 .igual { color: var(--suave); font-size: .75rem; }
