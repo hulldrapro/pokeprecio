@@ -117,7 +117,12 @@ function getSets(l = idioma) {
 /* Nombres de los sets: siempre el ORIGINAL en inglés ("Phantasmal Flames", no "Fuegos Fantasmales").
    Español e inglés comparten el id del set; los sets japoneses conservan su nombre japonés (que es el original). */
 let NOMBRES_EN = (() => { const c = leer('sets-en', null); return c ? Object.fromEntries(c.d.map((s) => [s.id, s.name])) : {}; })();
-getSets('en').then((s) => { NOMBRES_EN = Object.fromEntries(s.map((x) => [x.id, x.name])); }).catch(() => {});
+// tabla que viene DENTRO de la app (nombre + logo en inglés de cada set): funciona aunque TCGdex esté caído
+const setsEnP = fetch('sets-en.json').then((r) => r.json()).then((j) => {
+  for (const [id, v] of Object.entries(j)) if (!NOMBRES_EN[id]) NOMBRES_EN[id] = v.n;
+  return j;
+}).catch(() => ({}));
+getSets('en').then((s) => { for (const x of s) NOMBRES_EN[x.id] = x.name; }).catch(() => {}); // sets nuevos
 function nombreSet(x, lang) {
   if (!x) return '';
   const id = x.setId || (x.set && typeof x.set === 'object' && x.set.id) || (x.id ? x.id.slice(0, x.id.lastIndexOf('-')) : '');

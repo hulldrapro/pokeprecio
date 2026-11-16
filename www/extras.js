@@ -255,7 +255,10 @@ async function pintarSets() {
     const g = grupos.get(k); g.nums.add(String(parseInt(c.localId, 10) || c.localId)); g.valor += c.usd || 0; g.n++;
   }
   const lista = [...grupos.values()];
-  const setsEn = await getSets('en').catch(() => []); // logos originales en inglés
+  // nombres y logos en inglés: tabla incluida en la app (sets-en.json) + lista en línea si hay conexión
+  const SE = await setsEnP;
+  const enLinea = await getSets('en').catch(() => []);
+  const setsEn = enLinea.length ? enLinea : Object.entries(SE).map(([id, v]) => ({ id, name: v.n }));
   for (const l of [...new Set(lista.map((g) => g.idioma))]) {
     const sets = await getSets(l).catch(() => []);
     for (const g of lista.filter((x) => x.idioma === l)) {
@@ -268,7 +271,9 @@ async function pintarSets() {
         const iguales = setsEn.filter((x) => latino.includes(x.name.toLowerCase()));
         if (iguales.length === 1) en = iguales[0];
       }
-      g.logo = en?.logo || null; g.nombre = nombreSet({ setId: g.setId, set: s?.name || g.nombre, idioma: g.idioma });
+      const idEn = en ? en.id : g.setId;
+      g.logo = (SE[idEn] && SE[idEn].l) || (en?.logo ? `${en.logo}.webp` : null); // URL completa, solo en inglés
+      if (l !== 'ja' && NOMBRES_EN[g.setId]) g.nombre = NOMBRES_EN[g.setId]; g.nombre = nombreSet({ setId: g.setId, set: s?.name || g.nombre, idioma: g.idioma });
       g.tengo = [...g.nums].filter((n) => /^\d+$/.test(n) && +n <= g.oficial).length;
       g.pct = g.oficial ? g.tengo / g.oficial * 100 : 0;
     }
@@ -279,7 +284,7 @@ async function pintarSets() {
   cont.innerHTML = lista.length ? lista.map((g, i) => `
     <button class="set-item" data-i="${i}">
       <div class="set-cab">
-        ${g.logo ? `<img src="${esc(g.logo)}.webp" alt="" onerror="this.remove()">` : ''}
+        ${g.logo ? `<img src="${esc(g.logo)}" alt="" onerror="this.remove()">` : ''}
         <div><b>${esc(g.nombre)}</b><br><span class="meta">${g.n} carta${g.n === 1 ? '' : 's'} · ${fmtUSD(g.valor)} (${fmtCOP(g.valor * tasas.COP)})</span></div>
         <span class="set-pct">${g.oficial ? `${Math.floor(g.pct)}%` : ''}</span>
       </div>
@@ -298,7 +303,7 @@ async function abrirSet(g, soloFaltan = false) {
     const cartas = (set.cards || []).filter((c) => !soloFaltan || !tengo.has(c.id));
     cuerpo.innerHTML = `
       <div class="carta">
-        ${g.logo ? `<img class="logo-set" src="${esc(g.logo)}.webp" alt="" onerror="this.remove()">` : ''}
+        ${g.logo ? `<img class="logo-set" src="${esc(g.logo)}" alt="" onerror="this.remove()">` : ''}
         <h2>${esc(nombreSet({ setId: g.setId, set: set.name, idioma: g.idioma }))}</h2>
         <div class="progreso"><div style="width:${Math.min(100, g.pct)}%"></div></div>
         <p class="meta">Tienes ${g.tengo} de ${g.oficial} (${Math.floor(g.pct)}%) · ${(set.cards || []).length - [...tengo].length} te faltan en total (incluye secretas)</p>

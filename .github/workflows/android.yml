@@ -30,6 +30,7 @@ jobs:
         run: |
           npm run build
           node scripts/codigos-sets.js
+          node scripts/logos-en.js
           npx cap sync android
 
       - name: Llave de firma fija

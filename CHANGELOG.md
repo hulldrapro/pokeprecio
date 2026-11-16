@@ -3,6 +3,10 @@
 La versión se define en `package.json` → el workflow la pone en el APK (`CardCalc-vX.Y.Z.apk`) y en Android (`versionName`).
 Se ve en la app al final de **Colección**. Regla: cada APK nuevo sube la versión y se anota aquí.
 
+## v2.1.1 — 2026-11-16
+- Logo de **Temporal Forces** y de otros 27 sets que no lo tenían (Trainer Gallery, Shiny Vault, Galarian Gallery…), tomados de pokemontcg.io.
+- Nombres y logos en inglés incluidos dentro de la app (`sets-en.json`): salen bien aunque TCGdex esté caído.
+
 ## v2.1.0 — 2026-11-16
 - Progreso por set: sin banderas junto al nombre del set.
 - Tipos con los nombres de la comunidad: **Eléctrico** (antes Rayo), **Siniestro** (Oscura), **Metal** (Metálica), **Normal** (Incolora).
