@@ -180,6 +180,71 @@ body.con-resultados .visor { max-height: 40vh; }
 .lista-sesion .mas:disabled { background: var(--panel-2); color: var(--verde); }
 #panel-detalle { margin-top: 18px; }
 
+/* ---------- pestañas: punto de aviso ---------- */
+.tab { position: relative; }
+.punto-tab { position: absolute; top: 4px; right: calc(50% - 20px); width: 10px; height: 10px; border-radius: 50%; background: var(--rojo); box-shadow: 0 0 0 2px var(--fondo); }
+
+/* ---------- acciones en la ficha ---------- */
+.acciones-carta { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.acciones-carta button { flex: 1; min-width: 90px; padding: 9px 6px; border-radius: 10px; border: 1px solid var(--borde); background: var(--panel-2); font-weight: 700; font-size: .8rem; }
+.acciones-carta button:disabled { color: var(--verde); }
+
+/* ---------- colección: compartir, modos, sets ---------- */
+.compartir { margin: 12px 0 0; }
+.segmento { display: flex; background: var(--panel); border: 1px solid var(--borde); border-radius: 12px; padding: 4px; margin: 12px 0 0; gap: 4px; }
+.segmento button { flex: 1; padding: 9px; border: none; border-radius: 9px; background: none; color: var(--suave); font-weight: 700; font-size: .85rem; }
+.segmento button.sel { background: var(--panel-2); color: var(--texto); box-shadow: 0 1px 6px rgba(0, 0, 0, .3); }
+.lista-sets { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.set-item { text-align: left; background: var(--panel); border: 1px solid var(--borde); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.set-cab { display: flex; align-items: center; gap: 10px; }
+.set-cab img { width: 64px; max-height: 36px; object-fit: contain; }
+.set-cab > div { flex: 1; min-width: 0; }
+.set-pct { font-weight: 900; font-size: 1.2rem; color: var(--acento); }
+.set-item .progreso, .carta .progreso { margin: 0; height: 8px; }
+.rejilla-chica { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 12px; }
+.rejilla-chica .cand { flex: none; width: auto; }
+.album .falta img { filter: grayscale(1) brightness(.55); }
+.album .falta .n { color: var(--suave); }
+.album .tengo { border-color: var(--verde); }
+.filtro-modal { width: 100%; padding: 11px 14px; border-radius: 12px; border: 1px solid var(--borde); background: var(--panel-2); margin-top: 8px; }
+.legal { color: var(--suave); font-size: .7rem; line-height: 1.5; margin: 28px 4px 8px; text-align: center; opacity: .8; }
+
+/* ---------- intercambio ---------- */
+.veredicto { font-size: 1.25rem; margin: 6px 0 10px; }
+.veredicto.justo { color: var(--acento); }
+.veredicto.ganas { color: var(--verde); }
+.veredicto.pierdes { color: var(--rojo); }
+.balanza { display: flex; height: 14px; border-radius: 999px; overflow: hidden; background: var(--panel-2); }
+.b-doy { background: linear-gradient(90deg, #ff9f1c, #ff5c6c); transition: width .3s; }
+.b-recibo { background: linear-gradient(90deg, #4c8dff, #3ecf8e); transition: width .3s; }
+.lados { display: flex; flex-direction: column; gap: 12px; margin: 14px 0; }
+.lado { background: var(--panel); border: 1px solid var(--borde); border-radius: 16px; padding: 12px; }
+.lado-cab { display: flex; justify-content: space-between; align-items: center; color: var(--suave); font-size: .85rem; }
+.lado-cab b { color: var(--texto); font-size: 1rem; }
+.lista-cambio, .lista-deseos { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.lista-cambio li, .lista-deseos li { display: flex; align-items: center; gap: 10px; background: var(--panel-2); border: 1px solid var(--borde); border-radius: 12px; padding: 7px; }
+.lista-cambio img, .lista-deseos img { width: 46px; border-radius: 5px; cursor: pointer; }
+.lista-cambio .info, .lista-deseos .info { flex: 1; min-width: 0; display: flex; flex-direction: column; cursor: pointer; }
+.lista-cambio .info b, .lista-deseos .info b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .9rem; }
+.lista-cambio .valor { text-align: right; font-size: .85rem; }
+.lista-cambio .valor b { color: var(--verde); }
+.quitar { background: none; border: none; color: var(--rojo); font-size: 1.1rem; padding: 6px; }
+.vacio-lado { justify-content: center; color: var(--suave); font-size: .85rem; background: none !important; border-style: dashed !important; }
+
+/* ---------- deseos ---------- */
+.lista-deseos { margin-top: 14px; }
+.lista-deseos li { background: var(--panel); }
+.lista-deseos li.listo { border-color: var(--verde); box-shadow: 0 0 0 1px var(--verde) inset; }
+.lista-deseos li.vacio { display: block; text-align: center; padding: 30px 10px; }
+.chip-ok { color: var(--verde); font-weight: 800; font-size: .82rem; margin-top: 2px; }
+.acciones-deseo { display: flex; flex-direction: column; gap: 4px; }
+.acciones-deseo button { width: 34px; height: 30px; border-radius: 8px; border: 1px solid var(--borde); background: var(--panel-2); font-size: .85rem; }
+
+/* ---------- aviso flotante ---------- */
+.aviso { position: fixed; left: 16px; right: 16px; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 30; background: var(--panel-2); border: 1px solid var(--verde); color: var(--texto); padding: 14px 16px; border-radius: 14px; box-shadow: var(--sombra); transform: translateY(150%); opacity: 0; transition: transform .3s, opacity .3s; cursor: pointer; }
+.aviso.ver { transform: none; opacity: 1; }
+.tab { font-size: .7rem; }
+
 /* ---------- modal ---------- */
 .modal { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, .7); display: flex; align-items: flex-end; justify-content: center; }
 .modal[hidden] { display: none; }

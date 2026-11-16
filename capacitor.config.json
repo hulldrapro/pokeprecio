@@ -1,6 +1,6 @@
 {
   "appId": "com.hulldrapro.pokeprecio",
-  "appName": "PokéPrecio",
+  "appName": "CardCalc",
   "webDir": "www",
   "android": {
     "backgroundColor": "#14161c"

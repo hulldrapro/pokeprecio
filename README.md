@@ -1,6 +1,14 @@
-# PokéPrecio
+# CardCalc (antes PokéPrecio)
 
-App Android: le tomas una foto a una carta Pokémon (en español) y te dice cuánto vale en **USD** y **pesos colombianos**, con precios en vivo.
+App Android: le tomas una foto a una carta Pokémon TCG y te dice cuánto vale en **USD** y **pesos colombianos**, con precios en vivo.
+El nombre evita la marca "Pokémon" (requisito práctico para Google Play); el `appId` sigue siendo `com.hulldrapro.pokeprecio` para que las actualizaciones se instalen encima.
+
+## Pestañas
+- **📷 Escanear**: cámara con marco, de corrido, guardado automático, idioma ES/EN/JA.
+- **🗂️ Colección**: filtros, repetidas ×N, **📚 progreso por set** (álbum con las que faltan en gris), **📤 compartir** imagen de la colección y **🔁 lista de repetidas** para WhatsApp.
+- **⇄ Intercambio**: calculadora "Yo doy / Yo recibo" (justo / ganas / pierdes); «Hacer el cambio» actualiza la colección.
+- **♡ Deseos**: cartas que quieres con tu precio en pesos; aviso (punto rojo + mensaje) cuando alguna llega a ese precio (se revisa al abrir la app).
+- `www/extras.js` contiene intercambio, deseos, sets y compartir.
 
 ## Funciones
 - **Cámara en vivo con marco de carta**: la foto sale recortada a la carta → el lector sabe dónde buscar el número.

@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f1117">
-  <title>PokéPrecio</title>
+  <title>CardCalc</title>
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="logo.svg" type="image/svg+xml">
 </head>
 <body>
   <header class="barra">
-    <div class="marca"><img class="logo" src="logo.svg" alt="" aria-hidden="true"><span>Poké<b>Precio</b></span></div>
+    <div class="marca"><img class="logo" src="logo.svg" alt="" aria-hidden="true"><span>Card<b>Calc</b></span></div>
     <div id="dolar" class="dolar"></div>
   </header>
 
@@ -82,6 +82,14 @@
     <!-- ================= COLECCIÓN ================= -->
     <section id="vista-coleccion" class="vista">
       <div class="resumen" id="resumen"></div>
+      <div class="botones compartir">
+        <button id="btn-compartir-col">📤 Compartir colección</button>
+        <button id="btn-compartir-rep">🔁 Mis repetidas</button>
+      </div>
+      <div class="segmento" id="col-modo">
+        <button data-modo="cartas" class="sel">🃏 Cartas</button>
+        <button data-modo="sets">📚 Progreso por set</button>
+      </div>
       <div class="filtros">
         <input id="col-buscar" type="search" placeholder="Buscar en mi colección" autocomplete="off">
         <div class="fila-filtros">
@@ -108,12 +116,53 @@
         </div>
         <input id="input-importar" type="file" accept=".json,application/json" hidden>
       </div>
+      <p class="legal">CardCalc es una app independiente: no está afiliada, patrocinada ni aprobada por Nintendo, The Pokémon Company, Creatures o Game Freak. Pokémon y sus nombres son marcas de sus respectivos dueños. Datos de cartas y precios: TCGdex (TCGplayer y Cardmarket).</p>
+    </section>
+
+    <!-- ================= INTERCAMBIO ================= -->
+    <section id="vista-intercambio" class="vista">
+      <div class="resumen" id="cambio-resumen"></div>
+      <div class="lados">
+        <div class="lado" data-lado="doy">
+          <div class="lado-cab"><b>📤 Yo doy</b><span id="total-doy"></span></div>
+          <ul class="lista-cambio" id="lista-doy"></ul>
+          <div class="botones">
+            <button data-agregar="doy">＋ Buscar carta</button>
+            <button data-de-coleccion>🗂️ De mi colección</button>
+          </div>
+        </div>
+        <div class="lado" data-lado="recibo">
+          <div class="lado-cab"><b>📥 Yo recibo</b><span id="total-recibo"></span></div>
+          <ul class="lista-cambio" id="lista-recibo"></ul>
+          <div class="botones">
+            <button data-agregar="recibo">＋ Buscar carta</button>
+          </div>
+        </div>
+      </div>
+      <div class="botones">
+        <button class="guardar" id="btn-confirmar-cambio">✓ Hacer el cambio</button>
+        <button id="btn-compartir-cambio">📤 Compartir</button>
+        <button id="btn-limpiar-cambio">Limpiar</button>
+      </div>
+      <p class="nota">Tip: también puedes mandar cartas al intercambio desde el escáner con «⇄ La doy» / «⇄ La recibo». Al hacer el cambio, las que das salen de tu colección y las que recibes entran.</p>
+    </section>
+
+    <!-- ================= DESEOS ================= -->
+    <section id="vista-deseos" class="vista">
+      <div class="resumen" id="deseos-resumen"></div>
+      <div class="botones">
+        <button class="guardar" id="btn-agregar-deseo">＋ Agregar carta que quiero</button>
+        <button id="btn-actualizar-deseos">↻ Actualizar</button>
+      </div>
+      <ul class="lista-deseos" id="lista-deseos"></ul>
     </section>
   </main>
 
   <nav class="tabbar">
     <button class="tab activo" data-vista="escanear"><span>📷</span>Escanear</button>
-    <button class="tab" data-vista="coleccion"><span>🗂️</span>Mi colección</button>
+    <button class="tab" data-vista="coleccion"><span>🗂️</span>Colección</button>
+    <button class="tab" data-vista="intercambio"><span>⇄</span>Intercambio</button>
+    <button class="tab" data-vista="deseos"><span>♡</span>Deseos<i class="punto-tab" id="punto-deseos" hidden></i></button>
   </nav>
 
   <!-- detalle de una carta de la colección -->
@@ -127,5 +176,6 @@
   <script src="lib/tesseract.min.js"></script>
   <script src="reconocer.js"></script>
   <script src="app.js"></script>
+  <script src="extras.js"></script>
 </body>
 </html>

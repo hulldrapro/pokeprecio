@@ -1,4 +1,4 @@
-/* PokéPrecio — foto de una carta Pokémon → OCR en el celular → TCGdex (español) → precio USD/COP en vivo */
+/* CardCalc — foto de una carta Pokémon → OCR en el celular → TCGdex (español) → precio USD/COP en vivo */
 'use strict';
 
 /* Idioma de las cartas: cada uno tiene su base en TCGdex (nombres, sets y numeración propios en japonés) */
@@ -24,32 +24,36 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
 function leer(clave, def) { try { const v = localStorage.getItem(clave); return v ? JSON.parse(v) : def; } catch { return def; } }
 function guardar(clave, v) {
   try { localStorage.setItem(clave, JSON.stringify(v)); } catch { /* sin espacio */ }
-  if (clave === 'coleccion') espejoNativo(v);
+  if (CLAVES_NATIVAS.includes(clave)) espejoNativo(v, clave);
 }
+const CLAVES_NATIVAS = ['coleccion', 'deseos', 'cambio'];
 
 /* La colección también se guarda en el almacenamiento nativo de Android (Preferences), que no se borra
    al actualizar la app. Al abrir, si el WebView perdió sus datos, se recupera de ahí. */
 const Prefs = () => window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins.Preferences;
-function espejoNativo(col) {
+function espejoNativo(v, clave = 'coleccion') {
   const P = Prefs(); if (!P) return;
-  P.set({ key: 'coleccion', value: JSON.stringify(col) }).catch(() => {});
+  P.set({ key: clave, value: JSON.stringify(v) }).catch(() => {});
 }
+const vacio = (x) => !x || (Array.isArray(x) ? !x.length : !Object.values(x).some((y) => Array.isArray(y) ? y.length : y));
 async function restaurarColeccion() {
   const P = Prefs(); if (!P) return;
-  try {
-    const { value } = await P.get({ key: 'coleccion' });
-    const nativa = value ? JSON.parse(value) : null;
-    const local = leer('coleccion', null);
-    if (nativa && nativa.length && (!local || !local.length)) localStorage.setItem('coleccion', value); // recuperar
-    else if (local && local.length && !nativa) espejoNativo(local); // primera vez: copiar lo que había
-  } catch { /* sigue con lo local */ }
+  for (const clave of CLAVES_NATIVAS) {
+    try {
+      const { value } = await P.get({ key: clave });
+      const nativa = value ? JSON.parse(value) : null;
+      const local = leer(clave, null);
+      if (!vacio(nativa) && vacio(local)) localStorage.setItem(clave, value); // recuperar
+      else if (!vacio(local) && !nativa) espejoNativo(local, clave); // primera vez: copiar lo que había
+    } catch { /* sigue con lo local */ }
+  }
 }
 
 /* Copia de seguridad en archivo */
 async function exportarColeccion() {
   const col = leer('coleccion', []);
-  const json = JSON.stringify({ app: 'PokePrecio', version: 1, fecha: new Date().toISOString(), coleccion: col }, null, 1);
-  const nombre = `PokePrecio-coleccion-${new Date().toISOString().slice(0, 10)}.json`;
+  const json = JSON.stringify({ app: 'CardCalc', version: 2, fecha: new Date().toISOString(), coleccion: col, deseos: leer('deseos', []) }, null, 1);
+  const nombre = `CardCalc-coleccion-${new Date().toISOString().slice(0, 10)}.json`;
   const FS = nativo && window.Capacitor.Plugins.Filesystem;
   if (FS) {
     try {
@@ -68,10 +72,14 @@ function importarColeccion(ev) {
   r.onload = () => {
     try {
       const d = JSON.parse(r.result); const nuevas = Array.isArray(d) ? d : d.coleccion;
-      if (!Array.isArray(nuevas)) throw new Error('el archivo no es una copia de PokéPrecio');
+      if (!Array.isArray(nuevas)) throw new Error('el archivo no es una copia de CardCalc');
       const col = leer('coleccion', []); const uids = new Set(col.map((c) => c.uid));
       const agregar = nuevas.filter((c) => c && c.id && c.uid && !uids.has(c.uid));
       guardar('coleccion', [...col, ...agregar]);
+      if (Array.isArray(d.deseos)) {
+        const des = leer('deseos', []); const ks = new Set(des.map((x) => x.key));
+        guardar('deseos', [...des, ...d.deseos.filter((x) => x && x.key && !ks.has(x.key))]);
+      }
       alert(`Importadas ${agregar.length} cartas (${nuevas.length - agregar.length} ya estaban).`);
       pintarColeccion();
     } catch (e) { alert(`No se pudo importar: ${e.message}`); }
@@ -205,7 +213,13 @@ const GRUPOS_RAREZA = [['Todas', 0, 99], ['Comunes', 1, 2], ['Raras', 3, 4], ['D
 function irA(vista) {
   $$('.tab').forEach((t) => t.classList.toggle('activo', t.dataset.vista === vista));
   $$('.vista').forEach((v) => v.classList.toggle('activa', v.id === `vista-${vista}`));
-  if (vista === 'coleccion') { pararCamara(); pintarColeccion(); } else iniciarCamara();
+  if (vista === 'escanear') iniciarCamara();
+  else {
+    pararCamara();
+    if (vista === 'coleccion') pintarColeccion();
+    else if (vista === 'intercambio') pintarIntercambio();
+    else if (vista === 'deseos') pintarDeseos();
+  }
   window.scrollTo(0, 0);
 }
 
@@ -460,28 +474,32 @@ async function buscarPorNombre(q) {
   return Array.isArray(l) ? l : [];
 }
 
+/* Buscador general (escáner, intercambio, deseos): "43 94", "043094", "43/94", "PFL 43", "43" o un nombre. */
+async function buscarCartas(q) {
+  q = String(q || '').trim(); if (!q) return [];
+  const mNum = q.match(/^\s*(TG|GG|SV|RC)?\s*(\d{1,3})\s*\/\s*(TG|GG|SV|RC)?\s*(\d{1,3})\s*$/i);
+  const mCod = q.toUpperCase().match(/^\s*([A-Z0-9]{2,4})\s+(?:[A-Z]{2}\s+)?(\d{1,3})(?:\s*\/\s*\d{1,3})?\s*$/);
+  const codigos = await getCodigos();
+  if (mCod && codigos[mCod[1]]) {
+    return [await getJSON(`${API}/sets/${encodeURIComponent(codigos[mCod[1]])}/${parseInt(mCod[2], 10)}`).catch(() => null)].filter(Boolean);
+  }
+  if (mNum) {
+    const pref = (mNum[1] || mNum[3] || '').toUpperCase();
+    const num = pref ? pref + mNum[2].padStart(2, '0') : String(parseInt(mNum[2], 10));
+    return buscarPorNumero(num, parseInt(mNum[4], 10), pref);
+  }
+  if (/^[\d\s.\-]+$/.test(q)) return buscarSoloNumeros(q);
+  return buscarPorNombre(q);
+}
+
 async function busquedaManual(q) {
   q = q.trim(); if (!q) return;
   const id = ++busquedaId; fotoId++;
   langEscaneo = idioma; // a mano se busca en el idioma elegido
   mostrarResultado(); $('#mini-wrap').hidden = true; $('#ayuda-toque').hidden = true; imgActual = null;
-  const mNum = q.match(/^\s*(TG|GG|SV|RC)?\s*(\d{1,3})\s*\/\s*(TG|GG|SV|RC)?\s*(\d{1,3})\s*$/i);
-  const mCod = q.toUpperCase().match(/^\s*([A-Z0-9]{2,4})\s+(?:[A-Z]{2}\s+)?(\d{1,3})(?:\s*\/\s*\d{1,3})?\s*$/);
   try {
     estado('<span class="cargando">Buscando</span>');
-    let cartas = [];
-    const codigos = await getCodigos();
-    if (mCod && codigos[mCod[1]]) {
-      cartas = [await getJSON(`${API}/sets/${encodeURIComponent(codigos[mCod[1]])}/${parseInt(mCod[2], 10)}`).catch(() => null)].filter(Boolean);
-    } else if (mNum) {
-      const pref = (mNum[1] || mNum[3] || '').toUpperCase();
-      const num = pref ? pref + mNum[2].padStart(2, '0') : String(parseInt(mNum[2], 10));
-      cartas = await buscarPorNumero(num, parseInt(mNum[4], 10), pref);
-    } else if (/^[\d\s.\-]+$/.test(q)) {
-      cartas = await buscarSoloNumeros(q);
-    } else {
-      cartas = await buscarPorNombre(q);
-    }
+    const cartas = await buscarCartas(q);
     if (id !== busquedaId) return;
     if (!cartas.length) return estado(`No encontré «${esc(q)}». Usa el nombre en español o el número tipo 43/94.`, 'error');
     estado(cartas.length === 1 ? `✅ <b>${esc(cartas[0].name)}</b>` : `${cartas.length} resultados para «${esc(q)}». Toca la tuya.`);
@@ -585,6 +603,11 @@ function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
       ${item ? '' : '<button class="guardar" data-acc="guardar">＋ A mi colección</button>'}
       ${prodTCG ? `<a href="https://www.tcgplayer.com/product/${encodeURIComponent(prodTCG)}" target="_blank" rel="noopener">Ver en TCGplayer</a>` : ''}
     </div>
+    <div class="acciones-carta">
+      <button data-acc="deseo">♡ La quiero</button>
+      <button data-acc="doy">⇄ La doy</button>
+      ${item ? '' : '<button data-acc="recibo">⇄ La recibo</button>'}
+    </div>
     ${vs.length > 1 ? `<div class="variantes">${vs.map((v) => `<button data-v="${esc(v.clave)}">${esc(v.nombre)} · ${fmtUSD(v.market ?? v.mid)}</button>`).join('')}</div>` : ''}
     ${vs.length ? `<table><thead><tr><th>TCGplayer</th><th>Mercado</th><th>Mínimo</th><th>En pesos</th></tr></thead><tbody>
       ${vs.map((v) => `<tr><td>${esc(v.nombre)}</td><td>${fmtUSD(v.market)}</td><td>${fmtUSD(v.low)}</td><td>${v.market != null ? fmtCOP(v.market * tasas.COP) : '—'}</td></tr>`).join('')}</tbody></table>` : ''}
@@ -616,6 +639,17 @@ function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
     const uid = agregarColeccion(carta, p); marcarGuardada();
     if (entrada) { entrada.uidCol = uid; entrada.p = p; pintarSesion(); }
   });
+  // ♡ deseos y ⇄ intercambio desde cualquier ficha
+  const bD = $('[data-acc="deseo"]', destino);
+  if (bD) bD.addEventListener('click', async () => { if (await agregarDeseo(carta)) { bD.textContent = '♥ En tus deseos'; bD.disabled = true; } });
+  for (const lado of ['doy', 'recibo']) {
+    const b = $(`[data-acc="${lado}"]`, destino);
+    if (b) b.addEventListener('click', async () => {
+      const ok = await agregarAlCambio(lado, carta, lado === 'doy' && item ? item.uid : null);
+      b.textContent = ok ? (lado === 'doy' ? '✓ En «Yo doy»' : '✓ En «Yo recibo»') : 'Ya está en el intercambio';
+      b.disabled = true;
+    });
+  }
   const bQ = $('[data-acc="quitar"]', destino);
   if (bQ) bQ.addEventListener('click', () => {
     if (!confirm(item.copias > 1 ? `¿Quitar una copia de ${carta.name}? (te quedan ${item.copias - 1})` : `¿Quitar ${carta.name} de tu colección?`)) return;
@@ -652,6 +686,7 @@ function badgeCambio(pct) {
 }
 
 const filtro = { texto: '', orden: leer('orden', 'caras'), set: '', grupo: 0, tipo: '', idioma: '' };
+let modoColeccion = 'cartas'; // 'cartas' | 'sets' (progreso por set)
 // copias "iguales" = misma carta, misma variante y mismo idioma
 const claveCopia = (c) => `${c.id}|${c.variante || ''}|${c.idioma || 'es'}`;
 // tipos de las cartas japonesas → nombre en español, para filtrar todo junto
@@ -686,6 +721,9 @@ async function pintarColeccion() {
     </div>
     <div class="meta" style="margin-top:8px">Actualizado: ${ult ? esc(new Date(ult).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })) : 'aún no'} · se actualiza solo al abrir la app</div>`;
   $('#btn-actualizar').addEventListener('click', () => actualizarPrecios(true));
+  $('.filtros').hidden = modoColeccion === 'sets';
+  if (modoColeccion === 'sets') return pintarSets();
+  $('#lista-coleccion').className = 'rejilla';
 
   // opciones de set y rareza según lo que hay
   const sets = [...new Map(col.map((c) => [c.setId || c.set, c.set])).entries()].sort((a, b) => String(a[1]).localeCompare(b[1]));
@@ -759,6 +797,8 @@ function abrirItem(uid) {
 function cerrarModal() {
   $('#modal').hidden = true; document.body.style.overflow = '';
   if ($('#vista-coleccion').classList.contains('activa')) pintarColeccion();
+  else if ($('#vista-intercambio').classList.contains('activa')) pintarIntercambio();
+  else if ($('#vista-deseos').classList.contains('activa')) pintarDeseos();
 }
 
 let actualizando = false;
@@ -799,6 +839,9 @@ async function actualizarPrecios(manual = false) {
 }
 function autoActualizar() {
   if (Date.now() - leer('ultimaActualizacion', 0) > HORAS_AUTO * 36e5 && leer('coleccion', []).length) actualizarPrecios();
+  if (typeof actualizarDeseos === 'function' && Date.now() - leer('deseosRevisados', 0) > 3 * 36e5) {
+    guardar('deseosRevisados', Date.now()); actualizarDeseos().catch(() => {});
+  }
 }
 
 function pintarDolar(t) { $('#dolar').innerHTML = `Dólar hoy<br><b>${fmtCOP(t.COP)}</b>`; }
@@ -848,7 +891,7 @@ document.addEventListener('visibilitychange', () => {
 if (nativo && window.Capacitor.Plugins.App) {
   window.Capacitor.Plugins.App.addListener('backButton', () => {
     if (!$('#modal').hidden) cerrarModal();
-    else if ($('#vista-coleccion').classList.contains('activa')) irA('escanear');
+    else if (!$('#vista-escanear').classList.contains('activa')) irA('escanear');
     else window.Capacitor.Plugins.App.exitApp();
   });
 }
