@@ -36,9 +36,10 @@
           <input id="txt-buscar" type="search" placeholder="O escribe: 43 94 · 043094 · Milcery" autocomplete="off" enterkeyhint="search">
           <button type="submit" class="btn secundario">Buscar</button>
         </form>
+        <label class="interruptor auto"><input type="checkbox" id="auto-guardar"><span></span>Guardar automáticamente en mi colección cada carta que reconozca</label>
       </div>
 
-      <!-- resultado -->
+      <!-- resultado de la última carta (la cámara sigue activa arriba: se escanea de corrido) -->
       <div id="panel-resultado" hidden>
         <div class="fila-res">
           <div class="mini" id="mini-wrap">
@@ -48,13 +49,28 @@
           <div class="res-texto">
             <div id="estado" class="estado"></div>
             <p class="ayuda" id="ayuda-toque" hidden>¿No es tu carta? <b>Toca el número</b> en tu foto (abajo, ej. 043/094) y la vuelvo a leer.</p>
-            <button class="btn secundario chico" id="btn-otra">↺ Escanear otra</button>
           </div>
         </div>
-        <details id="ocr-detalle" hidden><summary>Texto leído</summary><pre id="ocr-texto"></pre></details>
         <p id="titulo-cand" class="titulo-sec" hidden></p>
         <div id="candidatos" class="carrusel"></div>
+      </div>
+
+      <!-- cartas escaneadas en esta sesión -->
+      <div id="panel-sesion" hidden>
+        <div class="sesion-cab">
+          <p class="titulo-sec">Escaneadas ahora · <span id="sesion-total"></span></p>
+        </div>
+        <ul id="lista-sesion" class="lista-sesion"></ul>
+        <div class="botones">
+          <button class="guardar" id="btn-guardar-todas">＋ Guardar todas</button>
+          <button id="btn-limpiar-sesion">Limpiar lista</button>
+        </div>
+      </div>
+
+      <div id="panel-detalle" hidden>
+        <p class="titulo-sec">Detalle de la última carta</p>
         <div id="detalle"></div>
+        <details id="ocr-detalle" hidden><summary>Texto leído</summary><pre id="ocr-texto"></pre></details>
       </div>
 
       <input id="input-foto" type="file" accept="image/*" capture="environment" hidden>

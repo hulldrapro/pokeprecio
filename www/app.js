@@ -158,14 +158,14 @@ const GRUPOS_RAREZA = [['Todas', 0, 99], ['Comunes', 1, 2], ['Raras', 3, 4], ['D
 function irA(vista) {
   $$('.tab').forEach((t) => t.classList.toggle('activo', t.dataset.vista === vista));
   $$('.vista').forEach((v) => v.classList.toggle('activa', v.id === `vista-${vista}`));
-  if (vista === 'coleccion') { pararCamara(); pintarColeccion(); } else if ($('#panel-resultado').hidden) iniciarCamara();
+  if (vista === 'coleccion') { pararCamara(); pintarColeccion(); } else iniciarCamara();
   window.scrollTo(0, 0);
 }
 
 /* ================= cámara en vivo ================= */
 let flujo = null;
 async function iniciarCamara() {
-  if (flujo || document.hidden || !$('#vista-escanear').classList.contains('activa') || !$('#panel-resultado').hidden) return;
+  if (flujo || document.hidden || !$('#vista-escanear').classList.contains('activa')) return;
   $('#sin-camara').hidden = true;
   try {
     flujo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1920 } }, audio: false });
@@ -231,19 +231,64 @@ let busquedaId = 0;
 function estado(html, tipo = '') { const e = $('#estado'); e.className = `estado ${tipo}`; e.innerHTML = html; }
 function progresoHTML(txt, i, n) { return `<span class="cargando">${esc(txt)}</span><div class="progreso"><div style="width:${Math.round(100 * i / n)}%"></div></div>`; }
 
+/* La cámara NO se cierra: el resultado aparece debajo y se puede volver a disparar enseguida. */
 function mostrarResultado() {
-  pararCamara();
-  $('#panel-camara').hidden = true; $('#panel-resultado').hidden = false;
+  document.body.classList.add('con-resultados');
+  $('#panel-resultado').hidden = false; $('#panel-detalle').hidden = false;
   $('#candidatos').innerHTML = ''; $('#titulo-cand').hidden = true; $('#detalle').innerHTML = ''; $('#ocr-detalle').hidden = true; $('#punto').hidden = true;
+  iniciarCamara();
 }
-function volverACamara() {
-  busquedaId++;
-  $('#panel-resultado').hidden = true; $('#panel-camara').hidden = false; imgActual = null;
-  window.scrollTo(0, 0); iniciarCamara();
+
+/* ---------- lista de cartas escaneadas en esta sesión ---------- */
+const sesion = []; // { busqueda, carta, p, uidCol }
+let seguroActual = false; // la última carta se reconoció con seguridad
+let fotoId = 0; // una foto o búsqueda = una entrada en la lista (releer tocando el número la corrige)
+
+function registrarEscaneo(carta, p, elegida) {
+  let e = sesion.find((x) => x.busqueda === fotoId);
+  if (e) { // se eligió otra candidata para la misma foto: se reemplaza
+    if (e.carta.id !== carta.id && e.uidCol) { guardar('coleccion', leer('coleccion', []).filter((c) => c.uid !== e.uidCol)); e.uidCol = null; }
+    Object.assign(e, { carta, p });
+  } else {
+    e = { busqueda: fotoId, carta, p, uidCol: null };
+    sesion.unshift(e);
+  }
+  if ($('#auto-guardar').checked && !e.uidCol && (seguroActual || elegida)) e.uidCol = agregarColeccion(carta, p);
+  pintarSesion(e);
+  return e;
+}
+
+async function pintarSesion(nueva) {
+  $('#panel-sesion').hidden = !sesion.length;
+  if (!sesion.length) return;
+  const tasas = await getTasas();
+  const total = sesion.reduce((s, e) => s + (e.p.usd || 0), 0);
+  $('#sesion-total').textContent = `${sesion.length} carta${sesion.length === 1 ? '' : 's'} · ${fmtUSD(total)} · ${fmtCOP(total * tasas.COP)}`;
+  $('#lista-sesion').innerHTML = sesion.map((e, i) => `
+    <li class="${e === nueva ? 'nueva' : ''}" data-i="${i}">
+      <img src="${esc(imgCarta(e.carta))}" alt="" data-ver>
+      <div class="info" data-ver><b>${esc(e.carta.name)}</b><span class="meta">${esc(e.carta.set?.name || '')} · ${esc(e.carta.localId)}</span></div>
+      <div class="valor"><b>${fmtUSD(e.p.usd)}</b><br><span class="meta">${e.p.usd != null ? fmtCOP(e.p.usd * tasas.COP) : ''}</span></div>
+      <button class="mas" data-mas ${e.uidCol ? 'disabled aria-label="Guardada"' : 'aria-label="Guardar en mi colección"'}>${e.uidCol ? '✓' : '＋'}</button>
+    </li>`).join('');
+  $$('#lista-sesion li').forEach((li) => {
+    const e = sesion[+li.dataset.i];
+    $('[data-mas]', li).addEventListener('click', () => { if (!e.uidCol) { e.uidCol = agregarColeccion(e.carta, e.p); pintarSesion(); } });
+    $$('[data-ver]', li).forEach((x) => x.addEventListener('click', () => { abrirCarta(e.carta, $('#detalle'), null, { soloVer: true }); $('#panel-detalle').scrollIntoView({ behavior: 'smooth' }); }));
+  });
+  const pend = sesion.filter((e) => !e.uidCol).length;
+  $('#btn-guardar-todas').hidden = !pend;
+  $('#btn-guardar-todas').textContent = `＋ Guardar ${pend === 1 ? 'la pendiente' : `las ${pend} pendientes`}`;
+}
+
+function precioRapido(carta, p, tasas) {
+  const r = $('#estado .precio-rapido');
+  const html = p.usd != null ? `<b>${fmtUSD(p.usd)}</b><span>${fmtCOP(p.usd * tasas.COP)} COP</span>` : '<span class="meta">sin precio registrado</span>';
+  if (r) r.innerHTML = html; else $('#estado').insertAdjacentHTML('beforeend', `<div class="precio-rapido">${html}</div>`);
 }
 
 async function procesarFoto(src) {
-  const id = ++busquedaId;
+  const id = ++busquedaId; fotoId++;
   mostrarResultado();
   $('#mini-wrap').hidden = false; $('#mini').src = src; $('#ayuda-toque').hidden = true;
   try {
@@ -308,11 +353,12 @@ async function resolver(res, id, sets, codigos) {
   }
   const cartas = ranking.map((x) => x.carta);
   const seguro = ranking.length === 1 || ranking[0].puntaje - ranking[1].puntaje >= 40;
+  seguroActual = seguro;
   $('#ayuda-toque').hidden = false;
   estado(seguro ? `✅ <b>${esc(cartas[0].name)}</b> · ${esc(cartas[0].set?.name || '')}`
     : `Encontré ${cartas.length} posibles. La más probable está marcada; si no es, toca la tuya (fíjate en el símbolo del set).`);
   mostrarCandidatos(cartas, seguro ? 'Otras coincidencias' : '¿Cuál es tu carta?', 0);
-  abrirCarta(cartas[0], $('#detalle'));
+  abrirCarta(cartas[0], $('#detalle'), null, { escaneo: true });
 }
 
 function cargarImagen(src) {
@@ -361,7 +407,7 @@ async function buscarPorNombre(q) {
 
 async function busquedaManual(q) {
   q = q.trim(); if (!q) return;
-  const id = ++busquedaId;
+  const id = ++busquedaId; fotoId++;
   mostrarResultado(); $('#mini-wrap').hidden = true; $('#ayuda-toque').hidden = true; imgActual = null;
   const mNum = q.match(/^\s*(TG|GG|SV|RC)?\s*(\d{1,3})\s*\/\s*(TG|GG|SV|RC)?\s*(\d{1,3})\s*$/i);
   const mCod = q.toUpperCase().match(/^\s*([A-Z0-9]{2,4})\s+(?:[A-Z]{2}\s+)?(\d{1,3})(?:\s*\/\s*\d{1,3})?\s*$/);
@@ -383,8 +429,9 @@ async function busquedaManual(q) {
     if (id !== busquedaId) return;
     if (!cartas.length) return estado(`No encontré «${esc(q)}». Usa el nombre en español o el número tipo 43/94.`, 'error');
     estado(cartas.length === 1 ? `✅ <b>${esc(cartas[0].name)}</b>` : `${cartas.length} resultados para «${esc(q)}». Toca la tuya.`);
+    seguroActual = cartas.length === 1;
     mostrarCandidatos(cartas.slice(0, 80), 'Resultados', cartas.length === 1 ? 0 : -1);
-    if (cartas.length === 1) abrirCarta(cartas[0], $('#detalle'));
+    if (cartas.length === 1) abrirCarta(cartas[0], $('#detalle'), null, { escaneo: true });
   } catch (e) {
     estado(`Error de conexión: ${esc(e.message)}`, 'error');
   }
@@ -407,16 +454,26 @@ function mostrarCandidatos(cartas, titulo, sel = -1) {
     </button>`).join('');
   $$('.cand', cont).forEach((b) => b.addEventListener('click', () => {
     $$('.cand', cont).forEach((x) => x.classList.toggle('sel', x === b));
-    abrirCarta(cartas[+b.dataset.i], $('#detalle'));
+    abrirCarta(cartas[+b.dataset.i], $('#detalle'), null, { escaneo: true, elegida: true });
   }));
 }
 
-async function abrirCarta(c, destino, item = null) {
+/* opts.escaneo: es el resultado de una foto/búsqueda → entra a la lista de la sesión y muestra el precio arriba.
+   opts.elegida: el usuario tocó esta candidata.  opts.soloVer: ver una carta de la lista de la sesión. */
+async function abrirCarta(c, destino, item = null, opts = {}) {
+  const id = busquedaId;
   destino.innerHTML = '<div class="carta"><span class="cargando">Consultando precio actual</span></div>';
   try {
     const carta = c.pricing !== undefined && c.set?.cardCount ? c : await getJSON(`${API}/cards/${encodeURIComponent(c.id)}`);
     const tasas = await getTasas();
-    pintarCarta(carta, tasas, destino, item);
+    let entrada = null;
+    if (opts.escaneo && id === busquedaId) {
+      const p = precioUSD(carta, tasas);
+      if (opts.elegida || !seguroActual) estado(`✅ <b>${esc(carta.name)}</b> · ${esc(carta.set?.name || '')}`);
+      precioRapido(carta, p, tasas);
+      entrada = registrarEscaneo(carta, p, opts.elegida);
+    } else if (opts.soloVer) entrada = sesion.find((e) => e.carta.id === carta.id) || null;
+    pintarCarta(carta, tasas, destino, item, entrada);
   } catch (e) {
     destino.innerHTML = `<div class="carta estado error">No se pudo consultar la carta (${esc(e.message)}). Revisa tu conexión.</div>`;
   }
@@ -433,7 +490,7 @@ function graficoHistoria(hist) {
     <div class="meta" style="display:flex;justify-content:space-between"><span>${new Date(x0).toLocaleDateString('es-CO')} · ${fmtUSD(ys[0])}</span><span>mín ${fmtUSD(y0)} · máx ${fmtUSD(y1)}</span></div>`;
 }
 
-function pintarCarta(carta, tasas, destino, item = null) {
+function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
   const vs = variantesTCG(carta);
   let variante = item ? item.variante : null;
   const cm = carta.pricing && carta.pricing.cardmarket;
@@ -491,7 +548,12 @@ function pintarCarta(carta, tasas, destino, item = null) {
     }
   }));
   const bG = $('[data-acc="guardar"]', destino);
-  if (bG) bG.addEventListener('click', () => { agregarColeccion(carta, p); bG.textContent = '✓ Guardada en tu colección'; bG.disabled = true; });
+  const marcarGuardada = () => { bG.textContent = '✓ Guardada en tu colección'; bG.disabled = true; };
+  if (bG && entrada && entrada.uidCol) marcarGuardada();
+  if (bG) bG.addEventListener('click', () => {
+    const uid = agregarColeccion(carta, p); marcarGuardada();
+    if (entrada) { entrada.uidCol = uid; entrada.p = p; pintarSesion(); }
+  });
   const bQ = $('[data-acc="quitar"]', destino);
   if (bQ) bQ.addEventListener('click', () => {
     if (!confirm(`¿Quitar ${carta.name} de tu colección?`)) return;
@@ -514,6 +576,7 @@ function agregarColeccion(carta, p) {
     historial: p.usd != null ? [{ t: Date.now(), usd: p.usd }] : [],
   });
   guardar('coleccion', col);
+  return col[0].uid;
 }
 function actualizarItem(uid, fn) {
   const col = leer('coleccion', []); const it = col.find((c) => c.uid === uid);
@@ -660,7 +723,14 @@ $('#btn-capturar').addEventListener('click', () => {
 $('#btn-foto-nativa').addEventListener('click', () => fotoSistema('camara'));
 $('#btn-galeria').addEventListener('click', () => fotoSistema('galeria'));
 $('#btn-reintentar').addEventListener('click', () => { pararCamara(); iniciarCamara(); });
-$('#btn-otra').addEventListener('click', volverACamara);
+$('#auto-guardar').checked = leer('autoGuardar', false);
+$('#auto-guardar').addEventListener('change', (e) => guardar('autoGuardar', e.target.checked));
+$('#btn-guardar-todas').addEventListener('click', () => { sesion.forEach((e) => { if (!e.uidCol) e.uidCol = agregarColeccion(e.carta, e.p); }); pintarSesion(); });
+$('#btn-limpiar-sesion').addEventListener('click', () => {
+  sesion.length = 0; pintarSesion();
+  $('#panel-resultado').hidden = true; $('#panel-detalle').hidden = true; document.body.classList.remove('con-resultados');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
 $('#input-foto').addEventListener('change', desdeInput);
 $('#input-galeria').addEventListener('change', desdeInput);
 $('#form-buscar').addEventListener('submit', (e) => { e.preventDefault(); busquedaManual($('#txt-buscar').value); $('#txt-buscar').blur(); });
@@ -681,7 +751,6 @@ document.addEventListener('visibilitychange', () => {
 if (nativo && window.Capacitor.Plugins.App) {
   window.Capacitor.Plugins.App.addListener('backButton', () => {
     if (!$('#modal').hidden) cerrarModal();
-    else if (!$('#panel-resultado').hidden) volverACamara();
     else if ($('#vista-coleccion').classList.contains('activa')) irA('escanear');
     else window.Capacitor.Plugins.App.exitApp();
   });
