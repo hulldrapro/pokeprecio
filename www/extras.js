@@ -261,8 +261,14 @@ async function pintarSets() {
     for (const g of lista.filter((x) => x.idioma === l)) {
       const s = sets.find((x) => x.id === g.setId);
       g.oficial = s?.cardCount?.official || s?.cardCount?.total || 0;
-      const en = l !== 'ja' ? setsEn.find((x) => x.id === g.setId) : null;
-      g.logo = en?.logo || s?.logo || null; g.nombre = nombreSet({ setId: g.setId, set: s?.name || g.nombre, idioma: g.idioma });
+      // SOLO logos en inglés. Japonés: se busca el set inglés equivalente por la parte latina del nombre ("ポケモンカード151" → "151")
+      let en = l !== 'ja' ? setsEn.find((x) => x.id === g.setId) : null;
+      if (l === 'ja' && s?.name) {
+        const latino = (s.name.match(/[A-Za-z0-9&' ]{3,}/g) || []).map((t) => t.trim().toLowerCase()).filter(Boolean);
+        const iguales = setsEn.filter((x) => latino.includes(x.name.toLowerCase()));
+        if (iguales.length === 1) en = iguales[0];
+      }
+      g.logo = en?.logo || null; g.nombre = nombreSet({ setId: g.setId, set: s?.name || g.nombre, idioma: g.idioma });
       g.tengo = [...g.nums].filter((n) => /^\d+$/.test(n) && +n <= g.oficial).length;
       g.pct = g.oficial ? g.tengo / g.oficial * 100 : 0;
     }
