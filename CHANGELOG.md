@@ -3,6 +3,24 @@
 La versión se define en `package.json` → el workflow la pone en el APK (`CardCalc-vX.Y.Z.apk`) y en Android (`versionName`).
 Se ve en la app al final de **Colección**. Regla: cada APK nuevo sube la versión y se anota aquí.
 
+## v2.2.0 — 2026-11-16
+**Coleccionista**
+- **Estado de la carta** (NM 100 %, LP 85 %, MP 70 %, HP 50 %, DMG 35 %): el valor de tu copia se ajusta.
+- **Lo que pagaste** por carta → ganancia/pérdida por carta y en el resumen de la colección.
+- **Carpetas** (Favoritas, Para jugar, Para vender o nuevas) con filtro en la colección.
+- **📊 Stats**: valor de la colección en el tiempo (con detalle al tocar), top 10, valor por set y por tipo, y vista de tabla.
+
+**Escanear más rápido**
+- **⚡ AUTO**: lee la carta sola cuando queda quieta en el marco (marco verde = lista, azul = leyendo); no repite la misma carta.
+- **🔦 Linterna** (si el celular la tiene).
+
+**Encontrar cartas**
+- Buscar un Pokémon por nombre → **💲 todas sus versiones ordenadas de la más barata a la más cara**.
+
+**Vender**
+- **💸 Modo venta**: eliges el % del mercado, marcas cartas, compartes la lista con precios y "Las vendí" las saca de la colección.
+- **Valor del lote** en "Escaneadas ahora" (y al % de venta) + "📋 Compartir lote".
+
 ## v2.1.1 — 2026-11-16
 - Logo de **Temporal Forces** y de otros 27 sets que no lo tenían (Trainer Gallery, Shiny Vault, Galarian Gallery…), tomados de pokemontcg.io.
 - Nombres y logos en inglés incluidos dentro de la app (`sets-en.json`): salen bien aunque TCGdex esté caído.

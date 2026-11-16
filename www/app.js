@@ -252,6 +252,7 @@ async function iniciarCamara() {
     const pista = flujo.getVideoTracks()[0];
     const cap = pista.getCapabilities ? pista.getCapabilities() : {};
     if (cap.focusMode && cap.focusMode.includes('continuous')) pista.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
+    if (typeof prepararExtrasCamara === 'function') prepararExtrasCamara(pista); // linterna + escaneo automático
   } catch (e) {
     flujo = null;
     $('#sin-camara').hidden = false;
@@ -341,7 +342,9 @@ async function pintarSesion(nueva) {
   if (!sesion.length) return;
   const tasas = await getTasas();
   const total = sesion.reduce((s, e) => s + (e.p.usd || 0), 0);
+  const pct = leer('ventaPct', 80);
   $('#sesion-total').textContent = `${sesion.length} carta${sesion.length === 1 ? '' : 's'} · ${fmtUSD(total)} · ${fmtCOP(total * tasas.COP)}`;
+  $('#sesion-venta').textContent = `Valor del lote: ${fmtCOP(total * tasas.COP)} · vendiéndolo al ${pct}%: ${fmtCOP(total * tasas.COP * pct / 100)}`;
   $('#lista-sesion').innerHTML = sesion.map((e, i) => `
     <li class="${e === nueva ? 'nueva' : ''}" data-i="${i}">
       <img src="${esc(imgCarta(e.carta))}" alt="" data-ver>
@@ -523,6 +526,8 @@ async function busquedaManual(q) {
     seguroActual = cartas.length === 1;
     mostrarCandidatos(cartas.slice(0, 80), 'Resultados', cartas.length === 1 ? 0 : -1);
     if (cartas.length === 1) abrirCarta(cartas[0], $('#detalle'), null, { escaneo: true });
+    // varias versiones (p. ej. "Charizard"): opción de verlas todas ordenadas por precio
+    else ofrecerOrdenPorPrecio(cartas.slice(0, 80), id);
   } catch (e) {
     estado(`Error de conexión: ${esc(e.message)}`, 'error');
   }
@@ -535,6 +540,7 @@ function imgCarta(c, calidad = 'low') {
 
 function mostrarCandidatos(cartas, titulo, sel = -1) {
   const cont = $('#candidatos'); const tit = $('#titulo-cand');
+  $('#btn-ordenar-precio').hidden = true;
   if (cartas.length <= 1 && sel === 0) { cont.innerHTML = ''; tit.hidden = true; return; }
   tit.hidden = false; tit.textContent = titulo;
   cont.innerHTML = cartas.map((c, i) => `
@@ -542,6 +548,7 @@ function mostrarCandidatos(cartas, titulo, sel = -1) {
       <img loading="lazy" src="${esc(imgCarta(c))}" alt="">
       <div class="n">${esc(c.name)}</div>
       <div class="s">${esc(nombreSet(c) || c.id)} · ${esc(c.localId)}</div>
+      ${c._precio !== undefined ? `<div class="precio-cand">${c._precio != null ? fmtUSD(c._precio) : 'sin precio'}</div>` : ''}
     </button>`).join('');
   $$('.cand', cont).forEach((b) => b.addEventListener('click', () => {
     $$('.cand', cont).forEach((x) => x.classList.toggle('sel', x === b));
@@ -633,7 +640,8 @@ function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
       ${cm['trend-holo'] ? `<tr><td>Holo / reverse</td><td>${fmtEUR(cm['trend-holo'])}</td><td>${fmtEUR(cm['avg30-holo'])}</td><td>${fmtCOP(cm['trend-holo'] / tasas.EUR * tasas.COP)}</td></tr>` : ''}
     </tbody></table>` : ''}
     ${item ? `<p class="titulo-sec">Historial de precio</p><div class="historia">${graficoHistoria(item.historial)}</div>` : ''}
-    ${item && item.copias > 1 ? `<p class="copias">Tienes <b>${item.copias} copias</b> de esta carta</p>` : ''}
+    ${item ? seccionMiCarta(item) : ''}
+    ${item && item.copias > 1 ? `<p class="copias">Tienes <b>${item.copias} copias</b> de esta carta (con este estado)</p>` : ''}
     ${item ? `<div class="botones"><button class="peligro" data-acc="quitar">${item.copias > 1 ? 'Quitar una copia' : 'Quitar de mi colección'}</button></div>` : ''}
     <p class="nota">Precio consultado ahora mismo${actualizado ? ` (TCGdex lo actualizó el ${esc(new Date(actualizado).toLocaleDateString('es-CO'))})` : ''}.
     ${{
@@ -656,6 +664,7 @@ function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
     const uid = agregarColeccion(carta, p); marcarGuardada();
     if (entrada) { entrada.uidCol = uid; entrada.p = p; pintarSesion(); }
   });
+  if (item) conectarMiCarta(destino, item, tasas, () => p);
   // ♡ deseos y ⇄ intercambio desde cualquier ficha
   const bD = $('[data-acc="deseo"]', destino);
   if (bD) bD.addEventListener('click', async () => { if (await agregarDeseo(carta)) { bD.textContent = '♥ En tus deseos'; bD.disabled = true; } });
@@ -702,10 +711,22 @@ function badgeCambio(pct) {
   return `<span class="${pct > 0 ? 'sube' : 'baja'}">${pct > 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}%</span>`;
 }
 
-const filtro = { texto: '', orden: leer('orden', 'caras'), set: '', grupo: 0, tipo: '', idioma: '' };
+const filtro = { texto: '', orden: leer('orden', 'caras'), set: '', grupo: 0, tipo: '', idioma: '', carpeta: '' };
 let modoColeccion = 'cartas'; // 'cartas' | 'sets' (progreso por set)
 // copias "iguales" = misma carta, misma variante y mismo idioma
-const claveCopia = (c) => `${c.id}|${c.variante || ''}|${c.idioma || 'es'}`;
+const claveCopia = (c) => `${c.id}|${c.variante || ''}|${c.idioma || 'es'}|${c.estado || 'NM'}`;
+/* Estado de la carta → % del precio de mercado (guía habitual de TCGplayer) */
+const ESTADOS = {
+  NM: { nombre: 'Nueva', corto: 'NM', f: 1 },
+  LP: { nombre: 'Casi nueva', corto: 'LP', f: 0.85 },
+  MP: { nombre: 'Jugada', corto: 'MP', f: 0.7 },
+  HP: { nombre: 'Muy jugada', corto: 'HP', f: 0.5 },
+  DMG: { nombre: 'Dañada', corto: 'DMG', f: 0.35 },
+};
+const factorEstado = (c) => (ESTADOS[c.estado] || ESTADOS.NM).f;
+const valorUSD = (c) => (c.usd || 0) * factorEstado(c); // lo que vale TU copia según su estado
+const CARPETAS_BASE = ['Favoritas', 'Para jugar', 'Para vender'];
+const carpetasUsadas = (col) => [...new Set([...CARPETAS_BASE, ...col.map((c) => c.carpeta).filter(Boolean)])];
 // tipos de las cartas japonesas → nombre en español, para filtrar todo junto
 const TIPO_JA = {
   草: 'Planta', 炎: 'Fuego', 水: 'Agua', 雷: 'Eléctrico', 超: 'Psíquico', 闘: 'Lucha', 悪: 'Siniestro', 鋼: 'Metal', ドラゴン: 'Dragón', フェアリー: 'Hada', 無色: 'Normal', トレーナーズ: 'Entrenador', エネルギー: 'Energía',
@@ -727,22 +748,38 @@ function tiposDe(c) {
 async function pintarColeccion() {
   const col = leer('coleccion', []);
   const tasas = await getTasas();
-  const total = col.reduce((s, c) => s + (c.usd || 0), 0);
+  const total = col.reduce((s, c) => s + valorUSD(c), 0); // según el estado de cada copia
+  const mercado = col.reduce((s, c) => s + (c.usd || 0), 0);
   const inicial = col.reduce((s, c) => s + (c.usdInicial ?? c.usd ?? 0), 0);
   const ult = leer('ultimaActualizacion', 0);
+  // inversión: solo las cartas a las que les pusiste "lo que pagaste"
+  const conCompra = col.filter((c) => c.compraCOP > 0);
+  const invertido = conCompra.reduce((s, c) => s + c.compraCOP, 0);
+  const valorConCompra = conCompra.reduce((s, c) => s + valorUSD(c) * tasas.COP, 0);
+  const ganancia = valorConCompra - invertido;
   $('#resumen').innerHTML = `
     <div class="meta">${col.length} carta${col.length === 1 ? '' : 's'}${(() => { const d = new Set(col.map(claveCopia)).size; return d < col.length ? ` (${d} distintas)` : ''; })()} · valor de tu colección</div>
     <div class="total">${fmtUSD(total)}</div>
     <div class="cop">${fmtCOP(total * tasas.COP)} COP</div>
+    ${invertido ? `<div class="inversion">Pagaste <b>${fmtCOP(invertido)}</b> por ${conCompra.length} carta${conCompra.length === 1 ? '' : 's'} · hoy valen ${fmtCOP(valorConCompra)} ·
+      <span class="${ganancia >= 0 ? 'sube' : 'baja'}">${ganancia >= 0 ? 'ganas' : 'pierdes'} ${fmtCOP(Math.abs(ganancia))} (${ganancia >= 0 ? '+' : '−'}${Math.abs(ganancia / invertido * 100).toFixed(0)}%)</span></div>` : ''}
     <div class="fila">
-      <span>${inicial ? `${badgeCambio((total / inicial - 1) * 100)} <span class="meta">desde que las guardaste</span>` : ''}</span>
+      <span>${inicial ? `${badgeCambio((mercado / inicial - 1) * 100)} <span class="meta">desde que las guardaste</span>` : ''}</span>
       <button class="btn secundario chico" id="btn-actualizar">↻ Actualizar precios</button>
     </div>
     <div class="meta" style="margin-top:8px">Actualizado: ${ult ? esc(new Date(ult).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })) : 'aún no'} · se actualiza solo al abrir la app</div>`;
   $('#btn-actualizar').addEventListener('click', () => actualizarPrecios(true));
-  $('.filtros').hidden = modoColeccion === 'sets';
+  $('.filtros').hidden = modoColeccion !== 'cartas';
   if (modoColeccion === 'sets') return pintarSets();
+  if (modoColeccion === 'stats') return pintarStats();
+  if (modoColeccion === 'venta') return pintarVenta();
   $('#lista-coleccion').className = 'rejilla';
+  // carpetas (solo si usas alguna)
+  const carpetas = [...new Set(col.map((c) => c.carpeta).filter(Boolean))];
+  $('#col-carpeta').hidden = !carpetas.length;
+  $('#col-carpeta').innerHTML = [['', '📁 Todas las carpetas'], ...carpetas.map((n) => [n, `📁 ${n}`])]
+    .map(([v, n]) => `<button data-c="${esc(v)}" class="${v === filtro.carpeta ? 'sel' : ''}">${esc(n)}</button>`).join('');
+  $$('#col-carpeta button').forEach((b) => b.addEventListener('click', () => { filtro.carpeta = b.dataset.c; pintarColeccion(); }));
 
   // opciones de set y rareza según lo que hay
   const sets = [...new Map(col.map((c) => [c.setId || c.set, nombreSet(c)])).entries()].sort((a, b) => String(a[1]).localeCompare(b[1]));
@@ -769,10 +806,11 @@ async function pintarColeccion() {
     (!filtro.set || (c.setId || c.set) === filtro.set) &&
     (!filtro.tipo || tiposDe(c).includes(filtro.tipo)) &&
     (!filtro.idioma || (c.idioma || 'es') === filtro.idioma) &&
+    (!filtro.carpeta || c.carpeta === filtro.carpeta) &&
     (filtro.grupo === 0 || (nivelRareza(c.rarity) >= gMin && nivelRareza(c.rarity) <= gMax)));
   // ordenar
   const ord = {
-    caras: (a, b) => (b.usd ?? -1) - (a.usd ?? -1),
+    caras: (a, b) => valorUSD(b) - valorUSD(a),
     raras: (a, b) => nivelRareza(b.rarity) - nivelRareza(a.rarity) || (b.usd ?? -1) - (a.usd ?? -1),
     recientes: (a, b) => b.fecha - a.fecha,
     suben: (a, b) => (cambioPct(b) ?? -1e9) - (cambioPct(a) ?? -1e9),
@@ -799,9 +837,9 @@ async function pintarColeccion() {
         <span class="idioma-chip" title="${esc(IDIOMAS[c.idioma || 'es'].nombre)}">${bandera(c.idioma)} ${IDIOMAS[c.idioma || 'es'].corto}</span>
       </div>
       <div class="n">${esc(c.name)}</div>
-      <div class="s">${esc(c.rarity || nombreSet(c))} · ${esc(c.num)}</div>
-      <div class="v"><b>${fmtUSD(c.usd)}${n > 1 ? '<small> c/u</small>' : ''}</b>${badgeCambio(cambioPct(c))}</div>
-      <div class="s">${c.usd != null ? fmtCOP(c.usd * n * tasas.COP) + ' COP' + (n > 1 ? ` las ${n}` : '') : ''}</div>
+      <div class="s">${c.estado && c.estado !== 'NM' ? `<span class="chip-estado">${esc(c.estado)}</span> ` : ''}${esc(c.rarity || nombreSet(c))} · ${esc(c.num)}</div>
+      <div class="v"><b>${fmtUSD(valorUSD(c))}${n > 1 ? '<small> c/u</small>' : ''}</b>${badgeCambio(cambioPct(c))}</div>
+      <div class="s">${c.usd != null ? fmtCOP(valorUSD(c) * n * tasas.COP) + ' COP' + (n > 1 ? ` las ${n}` : '') : ''}</div>
     </button>`).join('');
   $$('.item', cont).forEach((b) => b.addEventListener('click', () => abrirItem(b.dataset.uid)));
 }

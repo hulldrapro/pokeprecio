@@ -1,6 +1,6 @@
 {
   "name": "pokeprecio",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "description": "Foto de carta Pokemon -> precio en USD y COP",
   "scripts": {
     "build": "node scripts/copy-libs.js"

@@ -23,6 +23,10 @@
         <div class="visor" id="visor">
           <video id="video" playsinline muted autoplay></video>
           <div class="marco" id="marco"><span></span><span></span><span></span><span></span></div>
+          <div class="visor-botones">
+            <button class="visor-btn" id="btn-auto" aria-pressed="false" title="Escaneo automático">⚡ AUTO</button>
+            <button class="visor-btn" id="btn-linterna" aria-pressed="false" title="Linterna" hidden>🔦</button>
+          </div>
           <p class="pista" id="pista">Pon la carta dentro del marco · evita reflejos inclinándola un poco</p>
           <div class="sin-camara" id="sin-camara" hidden>
             <p>No se pudo abrir la cámara en vivo.</p>
@@ -54,6 +58,7 @@
           </div>
         </div>
         <p id="titulo-cand" class="titulo-sec" hidden></p>
+        <button class="btn secundario chico" id="btn-ordenar-precio" hidden>💲 Ver precios y ordenar de la más barata a la más cara</button>
         <div id="candidatos" class="carrusel"></div>
       </div>
 
@@ -62,9 +67,11 @@
         <div class="sesion-cab">
           <p class="titulo-sec">Escaneadas ahora · <span id="sesion-total"></span></p>
         </div>
+        <p class="meta" id="sesion-venta"></p>
         <ul id="lista-sesion" class="lista-sesion"></ul>
         <div class="botones">
           <button class="guardar" id="btn-guardar-todas">＋ Guardar todas</button>
+          <button id="btn-compartir-lote">📋 Compartir lote</button>
           <button id="btn-limpiar-sesion">Limpiar lista</button>
         </div>
       </div>
@@ -88,7 +95,9 @@
       </div>
       <div class="segmento" id="col-modo">
         <button data-modo="cartas" class="sel">🃏 Cartas</button>
-        <button data-modo="sets">📚 Progreso por set</button>
+        <button data-modo="sets">📚 Sets</button>
+        <button data-modo="stats">📊 Stats</button>
+        <button data-modo="venta">💸 Venta</button>
       </div>
       <div class="filtros">
         <input id="col-buscar" type="search" placeholder="Buscar en mi colección" autocomplete="off">
@@ -105,6 +114,7 @@
         </div>
         <div class="chips" id="col-tipo"></div>
         <div class="chips" id="col-idioma" hidden></div>
+        <div class="chips" id="col-carpeta" hidden></div>
         <div class="chips" id="col-rareza"></div>
       </div>
       <div id="lista-coleccion" class="rejilla"></div>
@@ -177,5 +187,6 @@
   <script src="reconocer.js"></script>
   <script src="app.js"></script>
   <script src="extras.js"></script>
+  <script src="extras2.js"></script>
 </body>
 </html>
