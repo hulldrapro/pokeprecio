@@ -499,7 +499,7 @@ function pintarCarta(carta, tasas, destino, item = null) {
     cerrarModal(); pintarColeccion();
   });
   // al abrir una carta guardada, su precio guardado también queda al día
-  if (item && p.usd != null) actualizarItem(item.uid, (it) => { if (Math.abs((it.usd ?? 0) - p.usd) > 1e-9) { it.usd = p.usd; it.historial = (it.historial || []).concat({ t: Date.now(), usd: p.usd }).slice(-200); } it.rarity = carta.rarity || it.rarity; });
+  if (item && p.usd != null) actualizarItem(item.uid, (it) => { if (Math.abs((it.usd ?? 0) - p.usd) > 1e-9) { it.usd = p.usd; it.historial = (it.historial || []).concat({ t: Date.now(), usd: p.usd }).slice(-200); } it.rarity = carta.rarity || it.rarity; it.types = carta.types || it.types; it.category = carta.category || it.category; });
 }
 
 /* ================= colección ================= */
@@ -509,6 +509,7 @@ function agregarColeccion(carta, p) {
     uid: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     id: carta.id, name: carta.name, set: carta.set ? carta.set.name : '', setId: carta.set ? carta.set.id : '',
     localId: carta.localId, num: `${carta.localId}/${carta.set?.cardCount?.official ?? '?'}`, image: carta.image, rarity: carta.rarity || '',
+    types: carta.types || [], category: carta.category || '',
     variante: p.variante, usd: p.usd, usdInicial: p.usd, fecha: Date.now(),
     historial: p.usd != null ? [{ t: Date.now(), usd: p.usd }] : [],
   });
@@ -525,7 +526,15 @@ function badgeCambio(pct) {
   return `<span class="${pct > 0 ? 'sube' : 'baja'}">${pct > 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}%</span>`;
 }
 
-const filtro = { texto: '', orden: leer('orden', 'caras'), set: '', grupo: 0 };
+const filtro = { texto: '', orden: leer('orden', 'caras'), set: '', grupo: 0, tipo: '' };
+
+/* Tipo de la carta: el tipo del Pokémon (Fuego, Agua…) o la categoría (Entrenador, Energía) */
+const TIPO_ICONO = { Fuego: '🔥', Agua: '💧', Planta: '🌿', 'Rayo': '⚡', 'Eléctrico': '⚡', 'Psíquico': '🔮', Lucha: '👊', Oscura: '🌑', Metálica: '⚙️', Dragón: '🐉', Hada: '🧚', Incolora: '⚪', Entrenador: '🎒', Energía: '✴️' };
+function tiposDe(c) {
+  if (c.types && c.types.length) return c.types;
+  if (c.category && !/pok/i.test(c.category)) return [c.category];
+  return [];
+}
 
 async function pintarColeccion() {
   const col = leer('coleccion', []);
@@ -550,6 +559,11 @@ async function pintarColeccion() {
   $('#col-orden').value = filtro.orden;
   $('#col-rareza').innerHTML = GRUPOS_RAREZA.map(([n], i) => `<button data-g="${i}" class="${i === filtro.grupo ? 'sel' : ''}">${esc(n)}</button>`).join('');
   $$('#col-rareza button').forEach((b) => b.addEventListener('click', () => { filtro.grupo = +b.dataset.g; pintarColeccion(); }));
+  const tipos = [...new Set(col.flatMap(tiposDe))].sort((a, b) => a.localeCompare(b, 'es'));
+  $('#col-tipo').hidden = !tipos.length;
+  $('#col-tipo').innerHTML = [['', 'Todos los tipos'], ...tipos.map((t) => [t, `${TIPO_ICONO[t] || '•'} ${t}`])]
+    .map(([v, n]) => `<button data-t="${esc(v)}" class="${v === filtro.tipo ? 'sel' : ''}">${esc(n)}</button>`).join('');
+  $$('#col-tipo button').forEach((b) => b.addEventListener('click', () => { filtro.tipo = b.dataset.t; pintarColeccion(); }));
 
   // filtrar
   const q = sinTildes(filtro.texto.trim());
@@ -557,6 +571,7 @@ async function pintarColeccion() {
   let lista = col.filter((c) =>
     (!q || sinTildes(`${c.name} ${c.set} ${c.num}`).includes(q)) &&
     (!filtro.set || (c.setId || c.set) === filtro.set) &&
+    (!filtro.tipo || tiposDe(c).includes(filtro.tipo)) &&
     (filtro.grupo === 0 || (nivelRareza(c.rarity) >= gMin && nivelRareza(c.rarity) <= gMax)));
   // ordenar
   const ord = {
@@ -607,7 +622,7 @@ async function actualizarPrecios(manual = false) {
         try {
           const carta = await getJSON(`${API}/cards/${encodeURIComponent(c.id)}`);
           const p = precioUSD(carta, tasas, c.variante);
-          nuevos.set(c.uid, { usd: p.usd, variante: p.variante, rarity: carta.rarity, setId: carta.set?.id });
+          nuevos.set(c.uid, { usd: p.usd, variante: p.variante, rarity: carta.rarity, setId: carta.set?.id, types: carta.types, category: carta.category });
           ok++;
         } catch { /* se deja el precio anterior */ }
       }));
@@ -617,6 +632,7 @@ async function actualizarPrecios(manual = false) {
     guardar('coleccion', leer('coleccion', []).map((c) => {
       const n = nuevos.get(c.uid); if (!n) return c;
       if (n.rarity) c.rarity = n.rarity; if (n.setId) c.setId = n.setId;
+      if (n.types) c.types = n.types; if (n.category) c.category = n.category;
       if (n.usd == null) return c;
       c.usd = n.usd; c.variante = n.variante; if (c.usdInicial == null) c.usdInicial = n.usd;
       c.historial = (c.historial || []).concat({ t: ahora, usd: n.usd }).slice(-200);
