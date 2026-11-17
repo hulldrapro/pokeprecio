@@ -160,21 +160,63 @@ function cambiarIdioma(l) {
   getSets(l).catch(() => {});
 }
 
+/* ================= moneda local (Ajustes) =================
+   Todo el código multiplica por `tasas.COP` y formatea con `fmtCOP`: ahora ambos son de la MONEDA ELEGIDA
+   (el nombre "COP" se quedó por compatibilidad). Los montos que escribe el usuario se guardan en US$. */
+const MONEDAS = {
+  COP: { nombre: 'Peso colombiano', plural: 'pesos', sim: '$', dec: 0, pais: '🇨🇴' },
+  USD: { nombre: 'Dólar estadounidense', plural: 'dólares', sim: 'US$', dec: 2, pais: '🇺🇸' },
+  MXN: { nombre: 'Peso mexicano', plural: 'pesos', sim: '$', dec: 2, pais: '🇲🇽' },
+  EUR: { nombre: 'Euro', plural: 'euros', sim: '€', dec: 2, pais: '🇪🇺' },
+  ARS: { nombre: 'Peso argentino', plural: 'pesos', sim: '$', dec: 0, pais: '🇦🇷' },
+  CLP: { nombre: 'Peso chileno', plural: 'pesos', sim: '$', dec: 0, pais: '🇨🇱' },
+  PEN: { nombre: 'Sol peruano', plural: 'soles', sim: 'S/', dec: 2, pais: '🇵🇪' },
+  BRL: { nombre: 'Real brasileño', plural: 'reales', sim: 'R$', dec: 2, pais: '🇧🇷' },
+  UYU: { nombre: 'Peso uruguayo', plural: 'pesos', sim: '$', dec: 0, pais: '🇺🇾' },
+  GTQ: { nombre: 'Quetzal', plural: 'quetzales', sim: 'Q', dec: 2, pais: '🇬🇹' },
+  CRC: { nombre: 'Colón costarricense', plural: 'colones', sim: '₡', dec: 0, pais: '🇨🇷' },
+  DOP: { nombre: 'Peso dominicano', plural: 'pesos', sim: 'RD$', dec: 0, pais: '🇩🇴' },
+  GBP: { nombre: 'Libra esterlina', plural: 'libras', sim: '£', dec: 2, pais: '🇬🇧' },
+  CAD: { nombre: 'Dólar canadiense', plural: 'dólares', sim: 'C$', dec: 2, pais: '🇨🇦' },
+};
+let MONEDA = MONEDAS[localStorage.getItem('moneda')] ? localStorage.getItem('moneda') : 'COP';
+const MON = () => MONEDAS[MONEDA];
+
 async function getTasas(forzar = false) {
   const c = leer('tasas', null);
-  if (!forzar && c && Date.now() - c.t < 12 * 36e5) return c.d;
+  const local = (d) => ({ ...d, COP: (d.rates && d.rates[MONEDA]) || (MONEDA === 'COP' ? d.COP : MONEDA === 'USD' ? 1 : d.COP), moneda: MONEDA });
+  if (!forzar && c && c.d.rates && Date.now() - c.t < 12 * 36e5) return local(c.d);
   try {
     const j = await getJSON(TASAS_URL);
-    const d = { COP: j.rates.COP, EUR: j.rates.EUR, fecha: j.time_last_update_utc };
+    const d = { rates: j.rates, COP: j.rates.COP, EUR: j.rates.EUR, fecha: j.time_last_update_utc };
     guardar('tasas', { t: Date.now(), d });
-    return d;
+    return local(d);
   } catch {
-    return c ? c.d : { COP: 4000, EUR: 0.92, fecha: 'sin conexión (aprox.)' };
+    return local(c ? c.d : { rates: { COP: 4000, USD: 1, EUR: 0.92 }, COP: 4000, EUR: 0.92, fecha: 'sin conexión (aprox.)' });
   }
 }
 
+/* Montos escritos antes de v2.3 (en pesos colombianos) → US$, para que no cambien al cambiar de moneda */
+async function migrarMontos() {
+  const col = leer('coleccion', []), des = leer('deseos', []);
+  if (!col.some((c) => c.compraCOP) && !des.some((d) => d.objetivoCOP)) return;
+  await getTasas();
+  const cop = leer('tasas', null)?.d?.rates?.COP || leer('tasas', null)?.d?.COP; if (!cop) return;
+  guardar('coleccion', col.map((c) => { if (c.compraCOP) { c.compraUSD = c.compraCOP / cop; delete c.compraCOP; } return c; }));
+  guardar('deseos', des.map((d) => { if (d.objetivoCOP) { d.objetivoUSD = d.objetivoCOP / cop; delete d.objetivoCOP; } return d; }));
+}
+
 const fmtUSD = (v) => (v == null ? '—' : `US$ ${v.toFixed(2)}`);
-const fmtCOP = (v) => (v == null ? '—' : `$ ${Math.round(v).toLocaleString('es-CO')}`);
+// en la moneda elegida; con "$" se agrega el código (COP, MXN…) para que no se confunda con dólares
+// sin decimales (COP, CLP…): 26.500 · con decimales (USD, EUR, MXN…): 1,234.56 — igual que "US$ 7.99"
+function fmtCOP(v, dec) {
+  if (v == null || isNaN(v)) return '—';
+  const m = MON(); const d = dec ?? m.dec;
+  const n = d ? Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : Math.round(v).toLocaleString('es-CO');
+  return m.sim === '$' ? `$ ${n} ${MONEDA}` : `${m.sim} ${n}`;
+}
+const fmtTasa = (v) => fmtCOP(v, v < 1000 ? 2 : 0); // tasa de cambio: con decimales si es pequeña (19.85 MXN)
+const enLocal = (usd, tasas) => (MONEDA === 'USD' ? '' : fmtCOP(usd * tasas.COP)); // vacío si ya se muestra en US$
 const fmtEUR = (v) => (!v ? '—' : `€ ${v.toFixed(2)}`);
 
 /* ================= precios ================= */
@@ -196,6 +238,13 @@ function variantesTCG(carta) {
 }
 
 function precioUSD(carta, tasas, variante, lang) {
+  // Ajustes → fuente principal Cardmarket (si la carta tiene precio ahí)
+  if (leer('fuentePrecio', 'tcgplayer') === 'cardmarket' && lang !== 'ja') {
+    const cm = carta.pricing && carta.pricing.cardmarket;
+    const holo = variante && /holo/i.test(variante) && cm && cm['trend-holo'];
+    const v = holo ? cm['trend-holo'] : cm && (cm.trend || cm.avg);
+    if (v) return { usd: v / tasas.EUR, variante: variante || 'cardmarket', fuente: 'Cardmarket' };
+  }
   // japonesas: TCGplayer casi nunca las tiene; Cardmarket sí cotiza el producto japonés
   if (lang === 'ja') {
     const cm = carta.pricing && carta.pricing.cardmarket;
@@ -230,6 +279,8 @@ const GRUPOS_RAREZA = [['Todas', 0, 99], ['Comunes', 1, 2], ['Raras', 3, 4], ['D
 function irA(vista) {
   $$('.tab').forEach((t) => t.classList.toggle('activo', t.dataset.vista === vista));
   $$('.vista').forEach((v) => v.classList.toggle('activa', v.id === `vista-${vista}`));
+  $('#btn-ajustes').classList.toggle('activo', vista === 'ajustes');
+  if (vista === 'ajustes') { pararCamara(); pintarAjustes(); return window.scrollTo(0, 0); }
   if (vista === 'escanear') iniciarCamara();
   else {
     pararCamara();
@@ -331,6 +382,7 @@ function registrarEscaneo(carta, p, elegida) {
   } else {
     e = { busqueda: fotoId, carta, p, uidCol: null };
     sesion.unshift(e);
+    if (leer('vibrar', true) && navigator.vibrate) navigator.vibrate(35); // carta leída
   }
   if ($('#auto-guardar').checked && !e.uidCol && (seguroActual || elegida)) e.uidCol = agregarColeccion(carta, p);
   pintarSesion(e);
@@ -364,7 +416,7 @@ async function pintarSesion(nueva) {
 
 function precioRapido(carta, p, tasas) {
   const r = $('#estado .precio-rapido');
-  const html = p.usd != null ? `<b>${fmtUSD(p.usd)}</b><span>${fmtCOP(p.usd * tasas.COP)} COP</span>` : '<span class="meta">sin precio registrado</span>';
+  const html = p.usd != null ? `<b>${fmtUSD(p.usd)}</b><span>${enLocal(p.usd, tasas)}</span>` : '<span class="meta">sin precio registrado</span>';
   if (r) r.innerHTML = html; else $('#estado').insertAdjacentHTML('beforeend', `<div class="precio-rapido">${html}</div>`);
 }
 
@@ -603,7 +655,7 @@ function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
     const p = precioUSD(carta, tasas, variante, carta._lang);
     variante = p.variante;
     $('.precio', destino).innerHTML = p.usd != null
-      ? `<div class="usd">${fmtUSD(p.usd)}</div><div class="cop">${fmtCOP(p.usd * tasas.COP)} COP</div><div class="fuente">${esc(p.fuente)} · ${esc(NOMBRE_VARIANTE[p.variante] || p.variante)}</div>`
+      ? `<div class="usd">${fmtUSD(p.usd)}</div><div class="cop">${enLocal(p.usd, tasas)}</div><div class="fuente">${esc(p.fuente)}${p.variante && p.variante !== 'cardmarket' ? ` · ${esc(NOMBRE_VARIANTE[p.variante] || p.variante)}` : ''}</div>`
       : '<div class="cop">Sin precio registrado</div>';
     $$('.variantes button', destino).forEach((b) => b.classList.toggle('sel', b.dataset.v === p.variante));
     return p;
@@ -633,9 +685,9 @@ function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
       ${item ? '' : '<button data-acc="recibo">⇄ La recibo</button>'}
     </div>
     ${vs.length > 1 ? `<div class="variantes">${vs.map((v) => `<button data-v="${esc(v.clave)}">${esc(v.nombre)} · ${fmtUSD(v.market ?? v.mid)}</button>`).join('')}</div>` : ''}
-    ${vs.length ? `<table><thead><tr><th>TCGplayer</th><th>Mercado</th><th>Mínimo</th><th>En pesos</th></tr></thead><tbody>
+    ${vs.length ? `<table><thead><tr><th>TCGplayer</th><th>Mercado</th><th>Mínimo</th><th>En ${esc(MON().plural)}</th></tr></thead><tbody>
       ${vs.map((v) => `<tr><td>${esc(v.nombre)}</td><td>${fmtUSD(v.market)}</td><td>${fmtUSD(v.low)}</td><td>${v.market != null ? fmtCOP(v.market * tasas.COP) : '—'}</td></tr>`).join('')}</tbody></table>` : ''}
-    ${cm ? `<table><thead><tr><th>Cardmarket</th><th>Tendencia</th><th>Prom. 30 d</th><th>En pesos</th></tr></thead><tbody>
+    ${cm ? `<table><thead><tr><th>Cardmarket</th><th>Tendencia</th><th>Prom. 30 d</th><th>En ${esc(MON().plural)}</th></tr></thead><tbody>
       <tr><td>Normal</td><td>${fmtEUR(cm.trend)}</td><td>${fmtEUR(cm.avg30)}</td><td>${cm.trend != null ? fmtCOP(cm.trend / tasas.EUR * tasas.COP) : '—'}</td></tr>
       ${cm['trend-holo'] ? `<tr><td>Holo / reverse</td><td>${fmtEUR(cm['trend-holo'])}</td><td>${fmtEUR(cm['avg30-holo'])}</td><td>${fmtCOP(cm['trend-holo'] / tasas.EUR * tasas.COP)}</td></tr>` : ''}
     </tbody></table>` : ''}
@@ -753,21 +805,21 @@ async function pintarColeccion() {
   const inicial = col.reduce((s, c) => s + (c.usdInicial ?? c.usd ?? 0), 0);
   const ult = leer('ultimaActualizacion', 0);
   // inversión: solo las cartas a las que les pusiste "lo que pagaste"
-  const conCompra = col.filter((c) => c.compraCOP > 0);
-  const invertido = conCompra.reduce((s, c) => s + c.compraCOP, 0);
+  const conCompra = col.filter((c) => c.compraUSD > 0);
+  const invertido = conCompra.reduce((s, c) => s + c.compraUSD * tasas.COP, 0);
   const valorConCompra = conCompra.reduce((s, c) => s + valorUSD(c) * tasas.COP, 0);
   const ganancia = valorConCompra - invertido;
   $('#resumen').innerHTML = `
     <div class="meta">${col.length} carta${col.length === 1 ? '' : 's'}${(() => { const d = new Set(col.map(claveCopia)).size; return d < col.length ? ` (${d} distintas)` : ''; })()} · valor de tu colección</div>
     <div class="total">${fmtUSD(total)}</div>
-    <div class="cop">${fmtCOP(total * tasas.COP)} COP</div>
+    <div class="cop">${enLocal(total, tasas)}</div>
     ${invertido ? `<div class="inversion">Pagaste <b>${fmtCOP(invertido)}</b> por ${conCompra.length} carta${conCompra.length === 1 ? '' : 's'} · hoy valen ${fmtCOP(valorConCompra)} ·
       <span class="${ganancia >= 0 ? 'sube' : 'baja'}">${ganancia >= 0 ? 'ganas' : 'pierdes'} ${fmtCOP(Math.abs(ganancia))} (${ganancia >= 0 ? '+' : '−'}${Math.abs(ganancia / invertido * 100).toFixed(0)}%)</span></div>` : ''}
     <div class="fila">
       <span>${inicial ? `${badgeCambio((mercado / inicial - 1) * 100)} <span class="meta">desde que las guardaste</span>` : ''}</span>
       <button class="btn secundario chico" id="btn-actualizar">↻ Actualizar precios</button>
     </div>
-    <div class="meta" style="margin-top:8px">Actualizado: ${ult ? esc(new Date(ult).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })) : 'aún no'} · se actualiza solo al abrir la app</div>`;
+    <div class="meta" style="margin-top:8px">Actualizado: ${ult ? esc(new Date(ult).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })) : 'aún no'} · ${leer('horasAuto', HORAS_AUTO) > 0 ? `se actualiza solo cada ${leer('horasAuto', HORAS_AUTO)} h al abrir la app` : 'actualización solo a mano (Ajustes)'}</div>`;
   $('#btn-actualizar').addEventListener('click', () => actualizarPrecios(true));
   $('.filtros').hidden = modoColeccion !== 'cartas';
   if (modoColeccion === 'sets') return pintarSets();
@@ -839,7 +891,7 @@ async function pintarColeccion() {
       <div class="n">${esc(c.name)}</div>
       <div class="s">${c.estado && c.estado !== 'NM' ? `<span class="chip-estado">${esc(c.estado)}</span> ` : ''}${esc(c.rarity || nombreSet(c))} · ${esc(c.num)}</div>
       <div class="v"><b>${fmtUSD(valorUSD(c))}${n > 1 ? '<small> c/u</small>' : ''}</b>${badgeCambio(cambioPct(c))}</div>
-      <div class="s">${c.usd != null ? fmtCOP(valorUSD(c) * n * tasas.COP) + ' COP' + (n > 1 ? ` las ${n}` : '') : ''}</div>
+      <div class="s">${c.usd != null ? fmtCOP(valorUSD(c) * n * tasas.COP) + (n > 1 ? ` las ${n}` : '') : ''}</div>
     </button>`).join('');
   $$('.item', cont).forEach((b) => b.addEventListener('click', () => abrirItem(b.dataset.uid)));
 }
@@ -895,13 +947,14 @@ async function actualizarPrecios(manual = false) {
   }
 }
 function autoActualizar() {
-  if (Date.now() - leer('ultimaActualizacion', 0) > HORAS_AUTO * 36e5 && leer('coleccion', []).length) actualizarPrecios();
+  const horas = leer('horasAuto', HORAS_AUTO); // Ajustes; 0 = solo a mano
+  if (horas > 0 && Date.now() - leer('ultimaActualizacion', 0) > horas * 36e5 && leer('coleccion', []).length) actualizarPrecios();
   if (typeof actualizarDeseos === 'function' && Date.now() - leer('deseosRevisados', 0) > 3 * 36e5) {
     guardar('deseosRevisados', Date.now()); actualizarDeseos().catch(() => {});
   }
 }
 
-function pintarDolar(t) { $('#dolar').innerHTML = `Dólar hoy<br><b>${fmtCOP(t.COP)}</b>`; }
+function pintarDolar(t) { $('#dolar').innerHTML = MONEDA === 'USD' ? `Moneda<br><b>US$ ${MON().pais}</b>` : `Dólar hoy ${MON().pais}<br><b>${fmtTasa(t.COP)}</b>`; }
 
 /* ================= arranque ================= */
 $$('.tab').forEach((t) => t.addEventListener('click', () => irA(t.dataset.vista)));
@@ -967,4 +1020,4 @@ getSets().catch(() => {});
 getCodigos();
 Reconocer.getWorker().catch(() => {}); // precarga el lector OCR
 iniciarCamara();
-restaurarColeccion().then(autoActualizar);
+restaurarColeccion().then(migrarMontos).then(autoActualizar).catch(autoActualizar);

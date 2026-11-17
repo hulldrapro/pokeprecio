@@ -11,7 +11,10 @@
 <body>
   <header class="barra">
     <div class="marca"><img class="logo" src="logo.svg" alt="" aria-hidden="true"><span>Card<b>Calc</b></span></div>
-    <div id="dolar" class="dolar"></div>
+    <div class="barra-der">
+      <div id="dolar" class="dolar"></div>
+      <button class="btn-ajustes" id="btn-ajustes" aria-label="Ajustes">⚙️</button>
+    </div>
   </header>
 
   <main>
@@ -118,15 +121,74 @@
         <div class="chips" id="col-rareza"></div>
       </div>
       <div id="lista-coleccion" class="rejilla"></div>
-      <div class="respaldo">
-        <p class="titulo-sec">Copia de seguridad</p>
+      <p class="legal">Copia de seguridad, moneda y más en <b>⚙️ Ajustes</b> (arriba a la derecha).</p>
+    </section>
+
+    <!-- ================= AJUSTES ================= -->
+    <section id="vista-ajustes" class="vista">
+      <h2 class="titulo-vista">⚙️ Ajustes</h2>
+
+      <div class="ajuste-grupo">
+        <p class="titulo-sec">💱 Moneda</p>
+        <select id="aj-moneda" aria-label="Moneda"></select>
+        <p class="meta" id="aj-moneda-info"></p>
+      </div>
+
+      <div class="ajuste-grupo">
+        <p class="titulo-sec">🌐 Idioma de las cartas</p>
+        <div class="chips envolver" id="aj-idioma"></div>
+        <p class="meta">En qué idioma busca y reconoce tus cartas (también se cambia en Escanear). Si una carta dice «EN» o «ES», se detecta sola.</p>
+      </div>
+
+      <div class="ajuste-grupo">
+        <p class="titulo-sec">💲 Precios</p>
+        <div class="campo"><span>Fuente principal del precio</span>
+          <div class="segmento" id="aj-fuente">
+            <button data-v="tcgplayer">TCGplayer (EE. UU.)</button>
+            <button data-v="cardmarket">Cardmarket (Europa)</button>
+          </div></div>
+        <div class="campo"><span>Actualizar precios de la colección automáticamente</span>
+          <select id="aj-horas">
+            <option value="3">Cada 3 horas</option><option value="6">Cada 6 horas</option>
+            <option value="12">Cada 12 horas</option><option value="24">Una vez al día</option>
+            <option value="0">Solo cuando yo toque «Actualizar»</option>
+          </select></div>
+        <div class="campo"><span>% de venta por defecto (modo venta y lotes): <b id="aj-pct-txt"></b></span>
+          <input type="range" id="aj-pct" min="40" max="100" step="5"></div>
+      </div>
+
+      <div class="ajuste-grupo">
+        <p class="titulo-sec">📷 Escaneo</p>
+        <label class="interruptor fila-aj"><input type="checkbox" id="aj-autoguardar"><span></span>Guardar automáticamente cada carta reconocida</label>
+        <label class="interruptor fila-aj"><input type="checkbox" id="aj-autoscan"><span></span>⚡ Escaneo AUTO (leer la carta cuando queda quieta)</label>
+        <label class="interruptor fila-aj"><input type="checkbox" id="aj-vibrar"><span></span>Vibrar al leer una carta</label>
+      </div>
+
+      <div class="ajuste-grupo respaldo">
+        <p class="titulo-sec">💾 Copia de seguridad</p>
+        <p class="meta">Guarda tu colección y tus deseos en un archivo (Documentos) para pasarlos a otro celular o por si acaso.</p>
         <div class="botones">
-          <button id="btn-exportar">⤓ Exportar colección</button>
-          <button id="btn-importar">⤒ Importar copia</button>
+          <button id="btn-exportar">⤓ Exportar</button>
+          <button id="btn-importar">⤒ Importar</button>
         </div>
         <input id="input-importar" type="file" accept=".json,application/json" hidden>
       </div>
-      <p class="legal">CardCalc es una app independiente: no está afiliada, patrocinada ni aprobada por Nintendo, The Pokémon Company, Creatures o Game Freak. Pokémon y sus nombres son marcas de sus respectivos dueños. Datos de cartas y precios: TCGdex (TCGplayer y Cardmarket).<br><b id="version-app">CardCalc</b></p>
+
+      <div class="ajuste-grupo">
+        <p class="titulo-sec">🧹 Datos</p>
+        <p class="meta" id="aj-datos-info"></p>
+        <div class="botones">
+          <button id="aj-cache">Borrar caché de sets y precios</button>
+          <button class="peligro" id="aj-borrar">Borrar toda mi colección</button>
+        </div>
+      </div>
+
+      <div class="ajuste-grupo">
+        <p class="titulo-sec">ℹ️ Acerca de</p>
+        <p><b id="version-app">CardCalc</b></p>
+        <p class="meta">Datos de cartas: TCGdex · Precios: TCGplayer y Cardmarket (vía TCGdex) · Logos faltantes: Pokémon TCG API · Tasas de cambio: open.er-api.com. Lectura de cartas en el propio celular (Tesseract), sin enviar tus fotos a ningún servidor.</p>
+        <p class="legal">CardCalc es una app independiente: no está afiliada, patrocinada ni aprobada por Nintendo, The Pokémon Company, Creatures o Game Freak. Pokémon y sus nombres son marcas de sus respectivos dueños.</p>
+      </div>
     </section>
 
     <!-- ================= INTERCAMBIO ================= -->
@@ -188,5 +250,6 @@
   <script src="app.js"></script>
   <script src="extras.js"></script>
   <script src="extras2.js"></script>
+  <script src="ajustes.js"></script>
 </body>
 </html>

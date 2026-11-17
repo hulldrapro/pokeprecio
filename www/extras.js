@@ -160,18 +160,19 @@ async function compartirCambio() {
 async function agregarDeseo(carta) {
   const tasas = await getTasas();
   const p = precioUSD(carta, tasas, null, carta._lang);
-  const sugerido = p.usd != null ? Math.round(p.usd * tasas.COP * 0.9 / 100) * 100 : '';
-  const r = prompt(`♡ ${carta.name}\nPrecio actual: ${p.usd != null ? fmtCOP(p.usd * tasas.COP) : 'sin precio'}\n\n¿Hasta cuántos PESOS pagarías? Te aviso cuando llegue a ese precio.`, sugerido);
+  const m = MON(); const paso = m.dec ? 1 : 100;
+  const sugerido = p.usd != null ? Math.round(p.usd * tasas.COP * 0.9 / paso) * paso : '';
+  const r = prompt(`♡ ${carta.name}\nPrecio actual: ${p.usd != null ? fmtCOP(p.usd * tasas.COP) : 'sin precio'}\n\n¿Hasta cuánto pagarías (en ${m.plural}, ${MONEDA})? Te aviso cuando llegue a ese precio.`, sugerido);
   if (r === null) return false;
   const cop = parseFloat(String(r).replace(/[^\d.]/g, ''));
   const deseos = leer('deseos', []);
-  deseos.unshift({ ...cartaCompacta(carta, p), objetivoCOP: cop > 0 ? cop : null, fecha: Date.now() });
+  deseos.unshift({ ...cartaCompacta(carta, p), objetivoUSD: cop > 0 ? cop / tasas.COP : null, fecha: Date.now() });
   guardar('deseos', deseos);
   marcarDeseosAlcanzados(tasas);
   return true;
 }
 
-const alcanzado = (d, tasas) => d.objetivoCOP && d.usd != null && d.usd * tasas.COP <= d.objetivoCOP;
+const alcanzado = (d) => d.objetivoUSD && d.usd != null && d.usd <= d.objetivoUSD;
 function marcarDeseosAlcanzados(tasas) {
   const n = leer('deseos', []).filter((d) => alcanzado(d, tasas)).length;
   $('#punto-deseos').hidden = !n;
@@ -191,8 +192,8 @@ async function pintarDeseos() {
     return `<li class="${ok ? 'listo' : ''}" data-key="${esc(d.key)}">
       <img src="${esc(imgCarta(d))}" alt="" data-ver>
       <div class="info" data-ver><b>${bandera(d.idioma)} ${esc(d.name)}</b><span class="meta">${esc(nombreSet(d))} · ${esc(d.localId)}</span>
-        <span class="meta">Hoy: <b>${actualCOP != null ? fmtCOP(actualCOP) : '—'}</b> · Tu precio: ${d.objetivoCOP ? fmtCOP(d.objetivoCOP) : 'sin definir'}</span>
-        ${ok ? '<span class="chip-ok">🎯 ¡Ya está a tu precio!</span>' : d.objetivoCOP && actualCOP != null ? `<span class="meta">Falta que baje ${fmtCOP(actualCOP - d.objetivoCOP)}</span>` : ''}
+        <span class="meta">Hoy: <b>${actualCOP != null ? fmtCOP(actualCOP) : '—'}</b> · Tu precio: ${d.objetivoUSD ? fmtCOP(d.objetivoUSD * tasas.COP) : 'sin definir'}</span>
+        ${ok ? '<span class="chip-ok">🎯 ¡Ya está a tu precio!</span>' : d.objetivoUSD && actualCOP != null ? `<span class="meta">Falta que baje ${fmtCOP(actualCOP - d.objetivoUSD * tasas.COP)}</span>` : ''}
       </div>
       <div class="acciones-deseo">
         <button data-acc="precio" aria-label="Cambiar mi precio">✏️</button>
@@ -205,11 +206,11 @@ async function pintarDeseos() {
     const key = li.dataset.key;
     const d = () => leer('deseos', []).find((x) => x.key === key);
     $$('[data-ver]', li).forEach((x) => x.addEventListener('click', () => { const dd = d(); abrirModal(''); abrirCarta({ id: dd.id, _lang: dd.idioma }, $('#modal-cuerpo')); }));
-    $('[data-acc="precio"]', li).addEventListener('click', () => {
-      const dd = d(); const r = prompt(`¿Hasta cuántos pesos pagarías por ${dd.name}?`, dd.objetivoCOP || '');
+    $('[data-acc="precio"]', li).addEventListener('click', async () => {
+      const dd = d(); const t = await getTasas(); const r = prompt(`¿Hasta cuánto pagarías por ${dd.name}? (en ${MON().plural}, ${MONEDA})`, dd.objetivoUSD ? Math.round(dd.objetivoUSD * t.COP * (MON().dec ? 100 : 1)) / (MON().dec ? 100 : 1) : '');
       if (r === null) return;
       const cop = parseFloat(String(r).replace(/[^\d.]/g, ''));
-      guardar('deseos', leer('deseos', []).map((x) => (x.key === key ? { ...x, objetivoCOP: cop > 0 ? cop : null } : x))); pintarDeseos();
+      guardar('deseos', leer('deseos', []).map((x) => (x.key === key ? { ...x, objetivoUSD: cop > 0 ? cop / t.COP : null } : x))); pintarDeseos();
     });
     $('[data-acc="tengo"]', li).addEventListener('click', async () => {
       const dd = d(); if (!confirm(`¿Ya conseguiste ${dd.name}? Pasa a tu colección.`)) return;
@@ -374,7 +375,7 @@ async function imagenColeccion() {
   g.fillStyle = '#ffcb05'; g.fillText('Calc', 180 + wc, 122);
   g.fillStyle = '#c9cde0'; g.font = '600 34px system-ui, sans-serif'; g.fillText('Mi colección Pokémon TCG', 64, 220);
   g.fillStyle = '#3ecf8e'; g.font = '900 104px system-ui, sans-serif'; g.fillText(fmtUSD(total), 64, 330);
-  g.fillStyle = '#fff'; g.font = '800 46px system-ui, sans-serif'; g.fillText(`${fmtCOP(total * tasas.COP)} COP`, 64, 395);
+  g.fillStyle = '#fff'; g.font = '800 46px system-ui, sans-serif'; g.fillText(fmtCOP(total * tasas.COP), 64, 395);
   g.fillStyle = '#8f97aa'; g.font = '500 30px system-ui, sans-serif'; g.fillText(`${col.length} cartas · ${g0.size} distintas · ${new Date().toLocaleDateString('es-CO')}`, 64, 448);
   // 3 columnas que caben en 1080 px: 64 + 3×288 + 2×24 + 64 = 1040
   const cw = 288, ch = 402, gx = 24, y0 = 490;

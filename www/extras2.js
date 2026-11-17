@@ -14,7 +14,7 @@ function seccionMiCarta(item) {
     </div>
     <div class="valor-estado" id="valor-estado"></div>
     <div class="campo"><span>Lo que pagaste</span>
-      <div class="fila-input"><input type="number" inputmode="numeric" min="0" id="compra-cop" placeholder="$ en pesos" value="${item.compraCOP || ''}"><span id="ganancia" class="meta"></span></div>
+      <div class="fila-input"><input type="number" inputmode="numeric" min="0" id="compra-cop" placeholder="en ${esc(MON().plural)} (${MONEDA})" value="${item.compraUSD ? +(item.compraUSD * (leer('tasas', null)?.d?.rates?.[MONEDA] || 1)).toFixed(MON().dec) : ''}"><span id="ganancia" class="meta"></span></div>
     </div>
     <div class="campo"><span>Carpeta</span>
       <div class="chips envolver" id="carpetas-carta">${[['', 'Ninguna'], ...carpetasUsadas(col).map((n) => [n, n])].map(([v, n]) => `<button data-carpeta="${esc(v)}" class="${(item.carpeta || '') === v ? 'sel' : ''}">${v ? '📁 ' : ''}${esc(n)}</button>`).join('')}<button data-carpeta-nueva>＋ Nueva</button></div>
@@ -31,9 +31,9 @@ function conectarMiCarta(destino, item, tasas, getP) {
     $('#valor-estado', destino).innerHTML = valor != null
       ? `Tu copia (${e.nombre}${e.f < 1 ? `, ${Math.round(e.f * 100)}% del mercado` : ''}): <b>${fmtUSD(valor)}</b> · ${fmtCOP(valor * tasas.COP)}` : '';
     const g = $('#ganancia', destino);
-    if (c.compraCOP > 0 && valor != null) {
-      const dif = valor * tasas.COP - c.compraCOP;
-      g.innerHTML = `<span class="${dif >= 0 ? 'sube' : 'baja'}">${dif >= 0 ? '▲ ganas' : '▼ pierdes'} ${fmtCOP(Math.abs(dif))} (${dif >= 0 ? '+' : '−'}${Math.abs(dif / c.compraCOP * 100).toFixed(0)}%)</span>`;
+    if (c.compraUSD > 0 && valor != null) {
+      const dif = (valor - c.compraUSD) * tasas.COP;
+      g.innerHTML = `<span class="${dif >= 0 ? 'sube' : 'baja'}">${dif >= 0 ? '▲ ganas' : '▼ pierdes'} ${fmtCOP(Math.abs(dif))} (${dif >= 0 ? '+' : '−'}${Math.abs(dif / (c.compraUSD * tasas.COP) * 100).toFixed(0)}%)</span>`;
     } else g.textContent = '';
   };
   $$('[data-estado]', destino).forEach((b) => b.addEventListener('click', () => {
@@ -43,7 +43,7 @@ function conectarMiCarta(destino, item, tasas, getP) {
   const inp = $('#compra-cop', destino);
   inp.addEventListener('input', () => {
     const v = parseFloat(inp.value);
-    actualizarItem(item.uid, (c) => { c.compraCOP = v > 0 ? v : null; }); pintar();
+    actualizarItem(item.uid, (c) => { c.compraUSD = v > 0 ? v / tasas.COP : null; delete c.compraCOP; }); pintar();
   });
   const cont = $('#carpetas-carta', destino);
   const elegir = (v) => {

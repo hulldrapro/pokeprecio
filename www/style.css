@@ -311,6 +311,19 @@ body.con-resultados .visor { max-height: 40vh; }
 .lista-venta li.vacio { display: block; text-align: center; cursor: default; }
 .botones .peligro:disabled, .botones .guardar:disabled { opacity: .45; }
 
+/* ---------- ajustes ---------- */
+.barra-der { display: flex; align-items: center; gap: 10px; }
+.btn-ajustes { width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--borde); background: var(--panel); font-size: 1.15rem; }
+.btn-ajustes.activo { background: var(--acento); border-color: var(--acento); }
+.titulo-vista { margin: 4px 0 12px; font-size: 1.3rem; }
+.ajuste-grupo { background: var(--panel); border: 1px solid var(--borde); border-radius: 16px; padding: 14px; margin-bottom: 12px; }
+.ajuste-grupo .titulo-sec { margin: 0 0 10px; }
+.ajuste-grupo select { width: 100%; }
+.ajuste-grupo .segmento { margin-top: 0; }
+.ajuste-grupo input[type=range] { width: 100%; accent-color: var(--acento); }
+.fila-aj { display: flex; margin: 10px 0; color: var(--texto); font-size: .9rem; }
+.ajuste-grupo .legal { margin: 10px 0 0; text-align: left; }
+
 /* ---------- modal ---------- */
 .modal { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, .7); display: flex; align-items: flex-end; justify-content: center; }
 .modal[hidden] { display: none; }

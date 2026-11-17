@@ -3,6 +3,16 @@
 La versión se define en `package.json` → el workflow la pone en el APK (`CardCalc-vX.Y.Z.apk`) y en Android (`versionName`).
 Se ve en la app al final de **Colección**. Regla: cada APK nuevo sube la versión y se anota aquí.
 
+## v2.3.0 — 2026-11-16 · ⚙️ Ajustes
+- Nueva pantalla **⚙️ Ajustes** (botón arriba a la derecha):
+  - **Moneda**: COP, USD, MXN, EUR, ARS, CLP, PEN, BRL, UYU, GTQ, CRC, DOP, GBP, CAD — todos los precios de la app se convierten.
+  - **Idioma de las cartas** (Español / Inglés / Japonés).
+  - **Precios**: fuente principal TCGplayer o Cardmarket; actualización automática cada 3/6/12/24 h o solo a mano; % de venta por defecto.
+  - **Escaneo**: guardar automático, ⚡ AUTO, vibrar al leer una carta.
+  - **Copia de seguridad** (exportar/importar), **borrar caché** y **borrar colección** (con doble confirmación).
+  - **Acerca de**: versión, fuentes de datos y aviso legal.
+- "Lo que pagaste" y el precio de tus deseos se guardan en US$ (no cambian al cambiar de moneda); los que tenías en pesos se convirtieron solos.
+
 ## v2.2.1 — 2026-11-16
 - "La más valiosa", el Top 10 y la imagen para compartir se ordenan por **precio unitario** (una copia), no por la suma de las repetidas. El Top 10 sigue mostrando ×N y, al tocarlo, el total de tus copias.
 
