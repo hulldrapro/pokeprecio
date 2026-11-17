@@ -477,6 +477,13 @@ async function resolver(res, id, sets, codigos, lang = idioma) {
   if (id !== busquedaId) return;
 
   if (!ranking.length) {
+    // ¿es una energía básica? (casi no tienen texto: dicen "Energía"/"Energy" y tienen un símbolo grande de color)
+    if (typeof ventanaEnergias === 'function' && /energ[ií]a|energy/i.test(res.texto) && !res.lecturas.some((l) => l.votos)) {
+      const pre = imgActual ? detectarEnergiaPorColor(imgActual) : null;
+      estado(`⚡ Parece una energía básica${pre ? ` de <b>${esc(pre.tipo)}</b>` : ''}. Elige cuántas agregar.`);
+      ventanaEnergias(pre);
+      return;
+    }
     // plan B: nombre leído arriba
     const palabras = [...new Set(res.arriba.match(/[A-Za-zÁÉÍÓÚÑáéíóúñ]{4,}/g) || [])]
       .filter((w) => !/^(basic|basico|básico|fase|stage|evoluciona|evolves|trainer|entrenador|pokemon|pokémon|ilus|illus)$/i.test(w))
@@ -493,6 +500,12 @@ async function resolver(res, id, sets, codigos, lang = idioma) {
     }
     estado('No pude reconocer la carta.', 'error');
     $('#ayuda-toque').hidden = false;
+    // las energías básicas casi no tienen texto: ofrecer el selector con el tipo adivinado por el color
+    if (typeof ventanaEnergias === 'function') {
+      const pre = imgActual ? detectarEnergiaPorColor(imgActual) : null;
+      $('#estado').insertAdjacentHTML('beforeend', '<div><button class="btn secundario chico" id="btn-es-energia">⚡ ¿Es una energía? Agrégala aquí</button></div>');
+      $('#btn-es-energia').addEventListener('click', () => ventanaEnergias(pre));
+    }
     return;
   }
   const cartas = ranking.map((x) => x.carta);
@@ -553,6 +566,9 @@ async function buscarPorNombre(q) {
 /* Buscador general (escáner, intercambio, deseos): "43 94", "043094", "43/94", "PFL 43", "43" o un nombre. */
 async function buscarCartas(q) {
   q = String(q || '').trim(); if (!q) return [];
+  // energías básicas con sinónimos: "energía eléctrica", "rayo energía", "fire energy"…
+  const en = typeof energiaDeTexto === 'function' ? energiaDeTexto(q) : null;
+  if (en) return [await cartaEnergia(en.n)];
   const mNum = q.match(/^\s*(TG|GG|SV|RC)?\s*(\d{1,3})\s*\/\s*(TG|GG|SV|RC)?\s*(\d{1,3})\s*$/i);
   const mCod = q.toUpperCase().match(/^\s*([A-Z0-9]{2,4})\s+(?:[A-Z]{2}\s+)?(\d{1,3})(?:\s*\/\s*\d{1,3})?\s*$/);
   const codigos = await getCodigos();
@@ -591,6 +607,7 @@ async function busquedaManual(q) {
 
 /* ================= interfaz de cartas ================= */
 function imgCarta(c, calidad = 'low') {
+  if (!c.image && typeof imgEnergia === 'function') { const s = imgEnergia(c); if (s) return s; } // energías sin imagen en TCGdex
   return c.image ? `${c.image}/${calidad}.webp` : 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 63 88"><rect width="63" height="88" rx="4" fill="#1f2330"/><text x="31" y="47" font-size="8" fill="#8f97aa" text-anchor="middle" font-family="sans-serif">sin imagen</text></svg>');
 }
 
@@ -621,6 +638,11 @@ async function abrirCarta(c, destino, item = null, opts = {}) {
   try {
     const carta = c.pricing !== undefined && c.set?.cardCount ? c : await getJSON(`${apiDe(lang)}/cards/${encodeURIComponent(c.id)}`);
     carta._lang = lang;
+    // energías básicas: en español no traen precio → el de la versión en inglés
+    if (typeof esEnergiaSVE === 'function' && esEnergiaSVE(carta.id) && !(carta.pricing && (carta.pricing.cardmarket || carta.pricing.tcgplayer)) && lang !== 'en') {
+      const en = await getJSON(`${apiDe('en')}/cards/${encodeURIComponent(carta.id)}`).catch(() => null);
+      if (en && en.pricing) carta.pricing = en.pricing;
+    }
     const tasas = await getTasas();
     let entrada = null;
     if (opts.escaneo && id === busquedaId) {
@@ -929,7 +951,8 @@ async function actualizarPrecios(manual = false) {
     for (let i = 0; i < col.length; i += 6) {
       await Promise.all(col.slice(i, i + 6).map(async (c) => {
         try {
-          const carta = await getJSON(`${apiDe(c.idioma || 'es')}/cards/${encodeURIComponent(c.id)}`);
+          // energías básicas: el precio solo existe en la versión en inglés
+          const carta = await getJSON(`${apiDe(typeof esEnergiaSVE === 'function' && esEnergiaSVE(c.id) ? 'en' : (c.idioma || 'es'))}/cards/${encodeURIComponent(c.id)}`);
           const p = precioUSD(carta, tasas, c.variante, c.idioma);
           nuevos.set(c.uid, { usd: p.usd, variante: p.variante, rarity: carta.rarity, setId: carta.set?.id, types: carta.types, category: carta.category });
           ok++;

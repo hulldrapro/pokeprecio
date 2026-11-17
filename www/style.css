@@ -401,3 +401,14 @@ body.con-resultados .visor { max-height: 40vh; }
   .modal { align-items: center; }
   .modal-caja { border-radius: 22px; }
 }
+
+/* ---------- energías básicas ---------- */
+.fila-botones { display: flex; gap: 8px; margin: 0 0 10px; }
+.fila-botones .btn { flex: 1; }
+.energias-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 12px 0; }
+.energia-item { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 6px; border-radius: 12px; border: 1px solid var(--borde); background: var(--panel-2); }
+.energia-item img { width: 46px; border-radius: 5px; }
+.energia-item.con { border-color: var(--acento); }
+.energia-item.pre { box-shadow: 0 0 0 2px var(--verde) inset; }
+.rapidos { display: flex; gap: 4px; }
+.rapidos button { padding: 3px 9px; border-radius: 999px; border: 1px solid var(--borde); background: var(--panel); font-size: .72rem; font-weight: 700; }

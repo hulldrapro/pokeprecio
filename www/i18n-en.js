@@ -126,6 +126,9 @@
       '“You have” counts cards in your collection with the same card number or the same name (any version works for playing). Legality comes from TCGdex; basic energies are always legal.',
     '📋 Importar lista': '📋 Import list', 'Pega la lista exportada de Pokémon TCG Live (o cualquier lista tipo «4 Pikachu ex SVI 57»).': 'Paste the list exported from Pokémon TCG Live (or any list like “4 Pikachu ex SVI 57”).',
     'Mazo importado': 'Imported deck', 'Mi mazo': 'My deck', 'Importar': 'Import', 'Pega una lista de cartas primero.': 'Paste a card list first.', '🃏 Agregar al mazo': '🃏 Add to deck', 'Menos': 'Less', 'Más': 'More',
+    // energías básicas
+    '⚡ Añadir energías básicas': '⚡ Add basic energy', '⚡ Añadir energías': '⚡ Add energy', '＋ Agregar a mi colección': '＋ Add to my collection',
+    '⚡ ¿Es una energía? Agrégala aquí': '⚡ Is it an energy card? Add it here', 'Planta': 'Grass',
     // mazos automáticos y plantillas
     '🤖 Armar con mis cartas': '🤖 Build from my cards', '📚 Plantillas de mazos': '📚 Deck templates', '🤖 Armar un mazo con mis cartas': '🤖 Build a deck from my cards',
     'Revisa tu colección, arma las líneas evolutivas que tienes (básico → fase 1 → fase 2), prioriza tus ex/V y las más valiosas, agrega tus entrenadores y calcula la energía según los ataques. Luego puedes editarlo a mano.':
@@ -182,6 +185,11 @@
     [/^tienes (\d+) · faltan (\d+)$/, 'you have $1 · $2 missing'], [/^✓ tienes (\d+)$/, '✓ you have $1'],
     [/^(\d+) carta\(s\) agregadas a tus deseos \(con su precio actual como objetivo\)\.$/, '$1 card(s) added to your wishlist (with their current price as target).'],
     [/^¿Borrar el mazo «(.+)»\? Tus cartas de la colección no se tocan\.$/, 'Delete the deck “$1”? Your collection cards are not touched.'],
+    [/^Las energías básicas casi no tienen texto que leer: elige el tipo y cuántas tienes, y se agregan todas de una vez \((\S+) (Español|Inglés|Japonés)\)\.(?: Detecté que puede ser)?$/, (m, f, l) => `Basic energy cards have almost no text to read: choose the type and how many you have, and they’re all added at once (${f} ${t(l)}).${/Detecté/.test(m) ? ' I detected it may be' : ''}`],
+    [/^＋ Agregar (\d+) energías? a mi colección$/, (m, n) => `＋ Add ${n} energ${+n === 1 ? 'y' : 'ies'} to my collection`],
+    [/^(\d+) energía\(s\) agregadas a tu colección\.$/, '$1 energy card(s) added to your collection.'], [/^Agregando (.+)$/, (m, a) => `Adding ${t(a)}`],
+    [/^⚡ Parece una energía básica(?: de)?$/, '⚡ Looks like a basic energy card of'], [/^\. Elige cuántas agregar\.$/, '. Choose how many to add.'],
+    [/^Energía (Planta|Fuego|Agua|Rayo|Psíquica|Lucha|Oscura|Metálica)$/, (m, a) => `${({ Planta: 'Grass', Fuego: 'Fire', Agua: 'Water', Rayo: 'Lightning', Psíquica: 'Psychic', Lucha: 'Fighting', Oscura: 'Darkness', Metálica: 'Metal' })[a]} Energy`],
     [/^Importando (\d+)\/(\d+)…$/, 'Importing $1/$2…'], [/^Revisando tus cartas… (\d+)\/(\d+)$/, 'Checking your cards… $1/$2'],
     [/^Mazo (.+) armado: (\d+) Pokémon, (\d+) entrenadores y (\d+) energías de (\S+) \((\d+) cartas\)\.$/, (m, n, p, e, en, te, tot) => `${n} deck built: ${p} Pokémon, ${e} trainers and ${en} ${t(te)} energy (${tot} cards).`],
     [/^Te faltan (\d+) cartas para llegar a 60: agrega más entrenadores o Pokémon\.$/, 'You need $1 more cards to reach 60: add more trainers or Pokémon.'],

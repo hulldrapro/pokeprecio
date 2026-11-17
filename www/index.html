@@ -45,7 +45,10 @@
           <input id="txt-buscar" type="search" placeholder="O escribe: 43 94 · 043094 · Milcery" autocomplete="off" enterkeyhint="search">
           <button type="submit" class="btn secundario">Buscar</button>
         </form>
-        <button class="btn secundario chico ancho" id="btn-busqueda-avanzada">🔎 Búsqueda avanzada (tipo, rareza, ilustrador, precio)</button>
+        <div class="fila-botones">
+          <button class="btn secundario chico" id="btn-busqueda-avanzada">🔎 Búsqueda avanzada</button>
+          <button class="btn secundario chico" id="btn-energias">⚡ Añadir energías básicas</button>
+        </div>
         <label class="interruptor auto"><input type="checkbox" id="auto-guardar"><span></span>Guardar automáticamente en mi colección cada carta que reconozca</label>
       </div>
 
@@ -306,6 +309,7 @@
   <script src="mazos.js"></script>
   <script src="mazos-auto.js"></script>
   <script src="extras3.js"></script>
+  <script src="energias.js"></script>
   <script src="ajustes.js"></script>
 </body>
 </html>

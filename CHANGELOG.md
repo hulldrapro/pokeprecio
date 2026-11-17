@@ -3,6 +3,12 @@
 La versión se define en `package.json` → el workflow la pone en el APK (`CardCalc-vX.Y.Z.apk`) y en Android (`versionName`).
 Se ve en la app al final de **Colección**. Regla: cada APK nuevo sube la versión y se anota aquí.
 
+## v2.7.1 — 2026-11-16 · ⚡ Energías básicas
+- Botón **⚡ Añadir energías básicas** (en Escanear): eliges tipo y cantidad (atajos 4/8/12) y se agregan todas de una vez.
+- Al escanear, si la carta dice «Energía»/«Energy» (o no se reconoce), se ofrece el selector con el **tipo adivinado por el color** del símbolo.
+- Búsqueda escrita con sinónimos: «energía eléctrica/rayo», «siniestra/oscura», «metal/metálica», «fire energy»…
+- Las energías de Escarlata y Púrpura no tienen imagen en TCGdex: ahora muestran una propia del color del tipo; y en español toman el precio de la versión en inglés.
+
 ## v2.7.0 — 2026-11-16 · 🤖 Mazos automáticos y plantillas
 - **🤖 Armar con mis cartas**: revisa tu colección, arma las líneas evolutivas completas (básico → fase 1 → fase 2, aunque sean de tipos distintos, como Charmander → Charizard ex), prioriza ex/V y las más valiosas, agrega tus entrenadores y calcula la energía según los costos de ataque. Tipo principal automático o elegido, formato Libre/Estándar/Expandido. El mazo queda editable.
 - **📚 Plantillas**: Charizard ex, Gardevoir ex, Dragapult ex y Pikachu ex (listas de referencia del meta 2024–2025). Se comparan con tu colección: qué tienes, qué te falta y cuánto cuesta completarla; la legalidad de hoy la verifica TCGdex.
