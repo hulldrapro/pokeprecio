@@ -3,6 +3,9 @@
 La versión se define en `package.json` → el workflow la pone en el APK (`CardCalc-vX.Y.Z.apk`) y en Android (`versionName`).
 Se ve en la app al final de **Colección**. Regla: cada APK nuevo sube la versión y se anota aquí.
 
+## v2.6.1 — 2026-11-16
+- Tema **solo manual**: 🌙 Oscuro o ☀️ Claro en Ajustes. Se quitó "Automático": la app ya no cambia sola con el modo del celular. Quien tenía "Automático" queda en Oscuro.
+
 ## v2.6.0 — 2026-11-16 · 🃏 Mazos, alertas, widget y más
 **Coleccionistas y jugadores**
 - Nueva pestaña **🃏 Mazos**: armar mazos, ver cuáles cartas tienes y cuáles te faltan, **costo para completarlo**, legalidad **Estándar / Expandido** (de TCGdex), avisos (60 cartas, máx. 4 copias), pasar faltantes a Deseos.

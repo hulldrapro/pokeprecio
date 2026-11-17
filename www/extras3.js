@@ -128,14 +128,14 @@ function textoNeto(usdBruto, tasas) {
 }
 
 /* ================= 🎨 TEMA ================= */
+// el tema lo elige SOLO el usuario (no sigue al celular): oscuro por defecto
 function aplicarTema() {
-  const t = leer('tema', 'oscuro');
-  const claro = t === 'claro' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: light)').matches);
+  if (leer('tema', 'oscuro') !== 'claro' && leer('tema', 'oscuro') !== 'oscuro') guardar('tema', 'oscuro'); // quitaba "automático"
+  const claro = leer('tema', 'oscuro') === 'claro';
   document.documentElement.dataset.theme = claro ? 'claro' : 'oscuro';
   const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = claro ? '#f4f5f9' : '#0f1117';
 }
 aplicarTema();
-window.matchMedia('(prefers-color-scheme: light)').addEventListener?.('change', aplicarTema);
 
 /* ================= 💾 COPIA AUTOMÁTICA ================= */
 async function copiaAutomatica() {
