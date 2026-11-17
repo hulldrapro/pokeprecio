@@ -3,6 +3,11 @@
 La versión se define en `package.json` → el workflow la pone en el APK (`CardCalc-vX.Y.Z.apk`) y en Android (`versionName`).
 Se ve en la app al final de **Colección**. Regla: cada APK nuevo sube la versión y se anota aquí.
 
+## v2.4.0 — 2026-11-16 · 🗣️ Idioma de la app
+- **Idioma de la app: Español / English** (⚙️ Ajustes → 🗣️ Idioma de la app). La primera vez se elige solo según el idioma del celular.
+- Se traduce toda la interfaz: pantallas, botones, mensajes emergentes, lo que se comparte por WhatsApp, la imagen de la colección y las fechas. Los nombres de cartas y sets no se traducen.
+- Traductor: `www/i18n.js` (motor) + `www/i18n-en.js` (diccionario y patrones).
+
 ## v2.3.0 — 2026-11-16 · ⚙️ Ajustes
 - Nueva pantalla **⚙️ Ajustes** (botón arriba a la derecha):
   - **Moneda**: COP, USD, MXN, EUR, ARS, CLP, PEN, BRL, UYU, GTQ, CRC, DOP, GBP, CAD — todos los precios de la app se convierten.

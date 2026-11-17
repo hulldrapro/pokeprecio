@@ -639,7 +639,7 @@ function graficoHistoria(hist) {
   const d = hist.map((h, i) => `${i ? 'L' : 'M'}${px(h.t).toFixed(1)},${py(h.usd).toFixed(1)}`).join(' ');
   const color = ys[ys.length - 1] >= ys[0] ? 'var(--verde)' : 'var(--rojo)';
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><path d="${d} L${W},${H} L0,${H} Z" fill="${color}" opacity=".12"/><path d="${d}" fill="none" stroke="${color}" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>
-    <div class="meta" style="display:flex;justify-content:space-between"><span>${new Date(x0).toLocaleDateString('es-CO')} · ${fmtUSD(ys[0])}</span><span>mín ${fmtUSD(y0)} · máx ${fmtUSD(y1)}</span></div>`;
+    <div class="meta" style="display:flex;justify-content:space-between"><span>${new Date(x0).toLocaleDateString(LOCALE())} · ${fmtUSD(ys[0])}</span><span>mín ${fmtUSD(y0)} · máx ${fmtUSD(y1)}</span></div>`;
 }
 
 function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
@@ -695,7 +695,7 @@ function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
     ${item ? seccionMiCarta(item) : ''}
     ${item && item.copias > 1 ? `<p class="copias">Tienes <b>${item.copias} copias</b> de esta carta (con este estado)</p>` : ''}
     ${item ? `<div class="botones"><button class="peligro" data-acc="quitar">${item.copias > 1 ? 'Quitar una copia' : 'Quitar de mi colección'}</button></div>` : ''}
-    <p class="nota">Precio consultado ahora mismo${actualizado ? ` (TCGdex lo actualizó el ${esc(new Date(actualizado).toLocaleDateString('es-CO'))})` : ''}.
+    <p class="nota">Precio consultado ahora mismo${actualizado ? ` (TCGdex lo actualizó el ${esc(new Date(actualizado).toLocaleDateString(LOCALE()))})` : ''}.
     ${{
     en: 'Carta en inglés: el precio de TCGplayer corresponde exactamente a esta versión.',
     ja: 'Carta japonesa: precio de Cardmarket del producto japonés (en euros, convertido). TCGplayer casi no vende japonesas.',
@@ -819,7 +819,7 @@ async function pintarColeccion() {
       <span>${inicial ? `${badgeCambio((mercado / inicial - 1) * 100)} <span class="meta">desde que las guardaste</span>` : ''}</span>
       <button class="btn secundario chico" id="btn-actualizar">↻ Actualizar precios</button>
     </div>
-    <div class="meta" style="margin-top:8px">Actualizado: ${ult ? esc(new Date(ult).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })) : 'aún no'} · ${leer('horasAuto', HORAS_AUTO) > 0 ? `se actualiza solo cada ${leer('horasAuto', HORAS_AUTO)} h al abrir la app` : 'actualización solo a mano (Ajustes)'}</div>`;
+    <div class="meta" style="margin-top:8px">Actualizado: ${ult ? esc(new Date(ult).toLocaleString(LOCALE(), { dateStyle: 'medium', timeStyle: 'short' })) : 'aún no'} · ${leer('horasAuto', HORAS_AUTO) > 0 ? `se actualiza solo cada ${leer('horasAuto', HORAS_AUTO)} h al abrir la app` : 'actualización solo a mano (Ajustes)'}</div>`;
   $('#btn-actualizar').addEventListener('click', () => actualizarPrecios(true));
   $('.filtros').hidden = modoColeccion !== 'cartas';
   if (modoColeccion === 'sets') return pintarSets();

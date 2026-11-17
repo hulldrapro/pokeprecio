@@ -327,6 +327,7 @@ async function abrirSet(g, soloFaltan = false) {
 
 /* ================= COMPARTIR ================= */
 async function compartirTexto(titulo, texto) {
+  titulo = tr(titulo); texto = trMulti(texto); // en el idioma de la app
   const Share = nativo && window.Capacitor.Plugins.Share;
   try {
     if (Share) return await Share.share({ title: titulo, text: texto, dialogTitle: 'Compartir' });
@@ -373,10 +374,10 @@ async function imagenColeccion() {
   const logo = await cargarImgCors('logo.svg'); if (logo) g.drawImage(logo, 64, 56, 96, 96);
   g.fillStyle = '#fff'; g.font = '900 54px system-ui, sans-serif'; g.fillText('Card', 180, 122); const wc = g.measureText('Card').width;
   g.fillStyle = '#ffcb05'; g.fillText('Calc', 180 + wc, 122);
-  g.fillStyle = '#c9cde0'; g.font = '600 34px system-ui, sans-serif'; g.fillText('Mi colección Pokémon TCG', 64, 220);
+  g.fillStyle = '#c9cde0'; g.font = '600 34px system-ui, sans-serif'; g.fillText(tr('Mi colección Pokémon TCG'), 64, 220);
   g.fillStyle = '#3ecf8e'; g.font = '900 104px system-ui, sans-serif'; g.fillText(fmtUSD(total), 64, 330);
   g.fillStyle = '#fff'; g.font = '800 46px system-ui, sans-serif'; g.fillText(fmtCOP(total * tasas.COP), 64, 395);
-  g.fillStyle = '#8f97aa'; g.font = '500 30px system-ui, sans-serif'; g.fillText(`${col.length} cartas · ${g0.size} distintas · ${new Date().toLocaleDateString('es-CO')}`, 64, 448);
+  g.fillStyle = '#8f97aa'; g.font = '500 30px system-ui, sans-serif'; g.fillText(tr(`${col.length} cartas · ${g0.size} distintas`) + ` · ${new Date().toLocaleDateString(LOCALE())}`, 64, 448);
   // 3 columnas que caben en 1080 px: 64 + 3×288 + 2×24 + 64 = 1040
   const cw = 288, ch = 402, gx = 24, y0 = 490;
   const imgs = await Promise.all(top.map(({ c }) => (c.image ? imgParaCanvas(`${c.image}/low.webp`) : null)));
@@ -396,7 +397,7 @@ async function imagenColeccion() {
     g.fillText(nom, x, y + ch + 42);
     g.fillStyle = '#3ecf8e'; g.font = '800 28px system-ui, sans-serif'; g.fillText(fmtUSD(valorUSD(c)), x, y + ch + 80);
   });
-  g.fillStyle = '#8f97aa'; g.font = '500 24px system-ui, sans-serif'; g.fillText('Hecho con CardCalc · precios de TCGplayer y Cardmarket', 64, H - 40);
+  g.fillStyle = '#8f97aa'; g.font = '500 24px system-ui, sans-serif'; g.fillText(tr('Hecho con CardCalc · precios de TCGplayer y Cardmarket'), 64, H - 40);
   return cv;
 }
 

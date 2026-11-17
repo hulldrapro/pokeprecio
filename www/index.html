@@ -82,7 +82,7 @@
       <div id="panel-detalle" hidden>
         <p class="titulo-sec">Detalle de la última carta</p>
         <div id="detalle"></div>
-        <details id="ocr-detalle" hidden><summary>Texto leído</summary><pre id="ocr-texto"></pre></details>
+        <details id="ocr-detalle" hidden><summary>Texto leído</summary><pre id="ocr-texto" data-no-traducir></pre></details>
       </div>
 
       <input id="input-foto" type="file" accept="image/*" capture="environment" hidden>
@@ -127,6 +127,14 @@
     <!-- ================= AJUSTES ================= -->
     <section id="vista-ajustes" class="vista">
       <h2 class="titulo-vista">⚙️ Ajustes</h2>
+
+      <div class="ajuste-grupo">
+        <p class="titulo-sec">🗣️ Idioma de la app</p>
+        <div class="segmento" id="aj-idioma-app" data-no-traducir>
+          <button data-l="es">🇪🇸 Español</button>
+          <button data-l="en">🇬🇧 English</button>
+        </div>
+      </div>
 
       <div class="ajuste-grupo">
         <p class="titulo-sec">💱 Moneda</p>
@@ -245,6 +253,8 @@
     </div>
   </div>
 
+  <script src="i18n.js"></script>
+  <script src="i18n-en.js"></script>
   <script src="lib/tesseract.min.js"></script>
   <script src="reconocer.js"></script>
   <script src="app.js"></script>

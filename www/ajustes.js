@@ -26,6 +26,13 @@ async function pintarAjustes() {
   $('#aj-datos-info').textContent = `${col.length} carta(s) en tu colección · ${des.length} deseo(s) · ${(bytes / 1024).toFixed(0)} KB usados en el celular`;
 }
 
+// idioma de la app
+$$('#aj-idioma-app button').forEach((b) => {
+  b.classList.toggle('sel', b.dataset.l === LANG_UI);
+  b.addEventListener('click', () => cambiarIdiomaApp(b.dataset.l));
+});
+iniciarI18n(); // traduce todo lo que ya está en pantalla y lo que aparezca después
+
 $('#btn-ajustes').addEventListener('click', () => irA($('#vista-ajustes').classList.contains('activa') ? 'escanear' : 'ajustes'));
 
 $('#aj-moneda').addEventListener('change', async (e) => {

@@ -103,7 +103,7 @@ function graficoLinea(serie, tasas) {
   const linea = serie.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
   const area = `${linea} L${x(serie.length - 1).toFixed(1)},${y(0)} L${x(0).toFixed(1)},${y(0)} Z`;
   const ticks = [0, max / 2, max].map((v) => `<line x1="${mi}" x2="${W - md}" y1="${y(v)}" y2="${y(v)}" class="g-grid"/><text x="${mi - 6}" y="${y(v) + 4}" class="g-eje" text-anchor="end">${fmtUSD(v).replace('US$ ', '$')}</text>`).join('');
-  const fecha = (p) => new Date(p.t).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+  const fecha = (p) => new Date(p.t).toLocaleDateString(LOCALE(), { day: 'numeric', month: 'short' });
   const etiquetas = serie.length > 1 ? `<text x="${x(0)}" y="${H - 6}" class="g-eje">${fecha(serie[0])}</text><text x="${x(serie.length - 1)}" y="${H - 6}" class="g-eje" text-anchor="end">${fecha(serie[serie.length - 1])}</text>` : '';
   return `<svg class="grafico" viewBox="0 0 ${W} ${H}" data-serie='${esc(JSON.stringify(serie.map((p) => [p.t, +p.v.toFixed(2)])))}' data-cop="${tasas.COP}">
     ${ticks}<path d="${area}" class="g-area"/><path d="${linea}" class="g-linea"/>${etiquetas}
@@ -125,7 +125,7 @@ function activarLinea(svg) {
     const cruz = $('.g-cruz', svg), pt = $('.g-punto', svg);
     cruz.setAttribute('x1', x(i)); cruz.setAttribute('x2', x(i)); cruz.setAttribute('visibility', 'visible');
     pt.setAttribute('cx', x(i)); pt.setAttribute('cy', y(v)); pt.setAttribute('visibility', 'visible');
-    tooltip(`<b>${new Date(t).toLocaleDateString('es-CO', { dateStyle: 'medium' })}</b><br>${fmtUSD(v)} · ${fmtCOP(v * cop)}`, r.left + x(i) / W * r.width, r.top + y(v) / H * r.height);
+    tooltip(`<b>${new Date(t).toLocaleDateString(LOCALE(), { dateStyle: 'medium' })}</b><br>${fmtUSD(v)} · ${fmtCOP(v * cop)}`, r.left + x(i) / W * r.width, r.top + y(v) / H * r.height);
   };
   const salir = () => { $('.g-cruz', svg).setAttribute('visibility', 'hidden'); $('.g-punto', svg).setAttribute('visibility', 'hidden'); tooltip(null); };
   svg.addEventListener('pointermove', mover); svg.addEventListener('pointerdown', mover); svg.addEventListener('pointerleave', salir);
