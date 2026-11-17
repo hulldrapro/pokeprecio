@@ -156,7 +156,8 @@ async function pintarStats() {
   const serie = serieValor(col);
   const total = col.reduce((s, c) => s + valorUSD(c), 0);
   const grupos = new Map(); for (const c of col) { const k = claveCopia(c); grupos.set(k, { c, n: (grupos.get(k)?.n || 0) + 1 }); }
-  const top = [...grupos.values()].sort((a, b) => valorUSD(b.c) * b.n - valorUSD(a.c) * a.n).slice(0, 10);
+  // por precio UNITARIO (una copia), no por la suma de las repetidas
+  const top = [...grupos.values()].sort((a, b) => valorUSD(b.c) - valorUSD(a.c)).slice(0, 10);
   const porSet = new Map(); const porTipo = new Map();
   for (const c of col) {
     const s = nombreSet(c) || '—'; porSet.set(s, (porSet.get(s) || 0) + valorUSD(c));
@@ -174,8 +175,8 @@ async function pintarStats() {
     <div class="panel-graf"><p class="titulo-sec">Valor de tu colección (US$)</p>
       ${serie.length > 1 ? graficoLinea(serie, tasas) : '<p class="meta">El gráfico aparece desde el segundo día: cada vez que se actualizan los precios se guarda un punto.</p>'}
     </div>
-    <div class="panel-graf"><p class="titulo-sec">Top 10 cartas más valiosas</p>
-      ${barras(top.map(({ c, n }) => ({ label: `${c.name}${n > 1 ? ` ×${n}` : ''}`, v: valorUSD(c) * n, extra: `${nombreSet(c)} · ${c.num || c.localId}` })), tasas)}</div>
+    <div class="panel-graf"><p class="titulo-sec">Top 10 cartas más valiosas (precio por carta)</p>
+      ${barras(top.map(({ c, n }) => ({ label: `${c.name}${n > 1 ? ` ×${n}` : ''}`, v: valorUSD(c), extra: `${nombreSet(c)} · ${c.num || c.localId}${n > 1 ? ` · tienes ${n}: ${fmtUSD(valorUSD(c) * n)} en total` : ''}` })), tasas)}</div>
     <div class="panel-graf"><p class="titulo-sec">Valor por set</p>${barras(agruparTop(porSet), tasas)}</div>
     <div class="panel-graf"><p class="titulo-sec">Valor por tipo</p>${barras(agruparTop(porTipo).map((f) => ({ ...f, label: `${TIPO_ICONO[f.label] || '•'} ${f.label}` })), tasas)}</div>
     <details class="tabla-datos"><summary>Ver como tabla</summary>

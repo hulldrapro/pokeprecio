@@ -364,8 +364,8 @@ function rectRedondo(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.ar
 async function imagenColeccion() {
   const col = leer('coleccion', []); const tasas = await getTasas();
   const g0 = new Map(); for (const c of col) { const k = claveCopia(c); g0.set(k, { c, n: (g0.get(k)?.n || 0) + 1 }); }
-  const top = [...g0.values()].sort((a, b) => (b.c.usd || 0) * b.n - (a.c.usd || 0) * a.n).slice(0, 6);
-  const total = col.reduce((s, c) => s + (c.usd || 0), 0);
+  const top = [...g0.values()].sort((a, b) => valorUSD(b.c) - valorUSD(a.c)).slice(0, 6); // precio unitario
+  const total = col.reduce((s, c) => s + valorUSD(c), 0);
   const W = 1080, H = top.length > 3 ? 1560 : 1060; const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d');
   const fondo = g.createLinearGradient(0, 0, W, H); fondo.addColorStop(0, '#1d1f4a'); fondo.addColorStop(0.6, '#2a1650'); fondo.addColorStop(1, '#0f1117');
   g.fillStyle = fondo; g.fillRect(0, 0, W, H);
@@ -393,7 +393,7 @@ async function imagenColeccion() {
     g.fillStyle = '#fff'; g.font = '800 30px system-ui, sans-serif';
     let nom = c.name; while (g.measureText(nom).width > cw && nom.length > 3) nom = nom.slice(0, -2) + '…';
     g.fillText(nom, x, y + ch + 42);
-    g.fillStyle = '#3ecf8e'; g.font = '800 28px system-ui, sans-serif'; g.fillText(fmtUSD(c.usd), x, y + ch + 80);
+    g.fillStyle = '#3ecf8e'; g.font = '800 28px system-ui, sans-serif'; g.fillText(fmtUSD(valorUSD(c)), x, y + ch + 80);
   });
   g.fillStyle = '#8f97aa'; g.font = '500 24px system-ui, sans-serif'; g.fillText('Hecho con CardCalc · precios de TCGplayer y Cardmarket', 64, H - 40);
   return cv;

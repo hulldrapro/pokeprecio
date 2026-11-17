@@ -3,6 +3,9 @@
 La versión se define en `package.json` → el workflow la pone en el APK (`CardCalc-vX.Y.Z.apk`) y en Android (`versionName`).
 Se ve en la app al final de **Colección**. Regla: cada APK nuevo sube la versión y se anota aquí.
 
+## v2.2.1 — 2026-11-16
+- "La más valiosa", el Top 10 y la imagen para compartir se ordenan por **precio unitario** (una copia), no por la suma de las repetidas. El Top 10 sigue mostrando ×N y, al tocarlo, el total de tus copias.
+
 ## v2.2.0 — 2026-11-16
 **Coleccionista**
 - **Estado de la carta** (NM 100 %, LP 85 %, MP 70 %, HP 50 %, DMG 35 %): el valor de tu copia se ajusta.
