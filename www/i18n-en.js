@@ -126,6 +126,19 @@
       '“You have” counts cards in your collection with the same card number or the same name (any version works for playing). Legality comes from TCGdex; basic energies are always legal.',
     '📋 Importar lista': '📋 Import list', 'Pega la lista exportada de Pokémon TCG Live (o cualquier lista tipo «4 Pikachu ex SVI 57»).': 'Paste the list exported from Pokémon TCG Live (or any list like “4 Pikachu ex SVI 57”).',
     'Mazo importado': 'Imported deck', 'Mi mazo': 'My deck', 'Importar': 'Import', 'Pega una lista de cartas primero.': 'Paste a card list first.', '🃏 Agregar al mazo': '🃏 Add to deck', 'Menos': 'Less', 'Más': 'More',
+    // mazos automáticos y plantillas
+    '🤖 Armar con mis cartas': '🤖 Build from my cards', '📚 Plantillas de mazos': '📚 Deck templates', '🤖 Armar un mazo con mis cartas': '🤖 Build a deck from my cards',
+    'Revisa tu colección, arma las líneas evolutivas que tienes (básico → fase 1 → fase 2), prioriza tus ex/V y las más valiosas, agrega tus entrenadores y calcula la energía según los ataques. Luego puedes editarlo a mano.':
+      'Checks your collection, builds the evolution lines you own (basic → stage 1 → stage 2), prioritizes your ex/V and most valuable cards, adds your trainers and picks the energy from the attack costs. You can edit it by hand afterwards.',
+    'Tipo principal': 'Main type', '✨ El mejor que tenga': '✨ The best I have', 'Formato': 'Format', 'Libre': 'Unlimited', 'Estándar': 'Standard', 'Expandido': 'Expanded', '🤖 Armar mazo': '🤖 Build deck',
+    'Listas de referencia de mazos conocidos (meta 2024–2025). Al elegir una, la app la compara con tu colección y te dice qué tienes, qué te falta y cuánto cuesta completarla. El formato Estándar rota cada año: la app verifica si hoy es legal.':
+      'Reference lists of well-known decks (2024–2025 meta). When you pick one, the app compares it with your collection and tells you what you have, what’s missing and what it costs to complete. Standard rotates every year: the app checks whether it’s legal today.',
+    '¿Quieres otra lista? Copia cualquiera (por ejemplo de un torneo) y usa «📋 Importar lista».': 'Want another list? Copy any (e.g. from a tournament) and use “📋 Import list”.',
+    'Comparando con tu colección': 'Comparing with your collection', 'No tienes Pokémon en tu colección (o ninguno es legal en ese formato).': 'You have no Pokémon in your collection (or none are legal in that format).',
+    'Charizard ex con Pidgeot ex para buscar cartas. Fase 2 con Caramelo Raro.': 'Charizard ex with Pidgeot ex to search cards. Stage 2 with Rare Candy.',
+    'Gardevoir ex acelera energía Psíquica desde el descarte.': 'Gardevoir ex accelerates Psychic energy from the discard pile.',
+    'Dragapult ex reparte contadores de daño en la banca rival.': 'Dragapult ex spreads damage counters on the opponent’s Bench.',
+    'Pikachu ex con Miraidon ex e Iron Hands ex. Mazo de básicos, fácil de armar.': 'Pikachu ex with Miraidon ex and Iron Hands ex. A Basic-Pokémon deck, easy to build.',
     // cartas calificadas
     'Calificación (gradeo)': 'Grading', 'Sin calificar': 'Ungraded', '🏅 Calificadas': '🏅 Graded', 'Nota': 'Grade', 'opcional': 'optional',
     '🔎 Ventas reales en eBay': '🔎 Real sales on eBay', '📈 PriceCharting': '📈 PriceCharting', '🏅 BGS (Beckett)': '🏅 BGS (Beckett)',
@@ -169,7 +182,10 @@
     [/^tienes (\d+) · faltan (\d+)$/, 'you have $1 · $2 missing'], [/^✓ tienes (\d+)$/, '✓ you have $1'],
     [/^(\d+) carta\(s\) agregadas a tus deseos \(con su precio actual como objetivo\)\.$/, '$1 card(s) added to your wishlist (with their current price as target).'],
     [/^¿Borrar el mazo «(.+)»\? Tus cartas de la colección no se tocan\.$/, 'Delete the deck “$1”? Your collection cards are not touched.'],
-    [/^Importando (\d+)\/(\d+)…$/, 'Importing $1/$2…'], [/^Mazo «(.+)» importado: (\d+) cartas\.$/, 'Deck “$1” imported: $2 cards.'], [/^No se encontraron (\d+) línea\(s\):$/, '$1 line(s) not found:'],
+    [/^Importando (\d+)\/(\d+)…$/, 'Importing $1/$2…'], [/^Revisando tus cartas… (\d+)\/(\d+)$/, 'Checking your cards… $1/$2'],
+    [/^Mazo (.+) armado: (\d+) Pokémon, (\d+) entrenadores y (\d+) energías de (\S+) \((\d+) cartas\)\.$/, (m, n, p, e, en, te, tot) => `${n} deck built: ${p} Pokémon, ${e} trainers and ${en} ${t(te)} energy (${tot} cards).`],
+    [/^Te faltan (\d+) cartas para llegar a 60: agrega más entrenadores o Pokémon\.$/, 'You need $1 more cards to reach 60: add more trainers or Pokémon.'],
+    [/^🤖 Mazo (.+)$/, '🤖 $1 deck'], [/^Mazo «(.+)» importado: (\d+) cartas\.$/, 'Deck “$1” imported: $2 cards.'], [/^No se encontraron (\d+) línea\(s\):$/, '$1 line(s) not found:'],
     [/^＋ Guardar las (\d+) pendientes$/, '＋ Save the $1 pending'],
     [/^Consultando precios… (.+)$/, 'Checking prices… $1'],
     [/^(\d+) versiones · de la más barata a la más cara$/, '$1 versions · cheapest to most expensive'],

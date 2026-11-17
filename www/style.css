@@ -370,6 +370,10 @@ body.con-resultados .visor { max-height: 40vh; }
 .cantidad-mazo b { min-width: 18px; text-align: center; }
 .area-texto { width: 100%; margin-top: 8px; padding: 10px; border-radius: 10px; border: 1px solid var(--borde); background: var(--panel-2); color: var(--texto); font: .85rem ui-monospace, monospace; }
 .tab span { font-size: 1.15rem; }
+.lista-plantillas { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.plantilla { text-align: left; display: flex; flex-direction: column; gap: 3px; padding: 12px; border-radius: 12px; border: 1px solid var(--borde); background: var(--panel-2); }
+.plantilla b { font-size: 1rem; }
+.plantilla:disabled { opacity: .5; }
 
 /* ---------- ajustes ---------- */
 .barra-der { display: flex; align-items: center; gap: 10px; }

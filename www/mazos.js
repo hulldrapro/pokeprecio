@@ -18,7 +18,9 @@ function cartaDeMazo(carta, p, n = 1) {
 /* cuántas copias tienes de una carta del mazo: misma carta (id, sirve en cualquier idioma) o mismo nombre */
 function cuantasTengo(cm, col) {
   const nom = sinTildes(cm.name);
-  return col.filter((c) => c.id === cm.id || sinTildes(c.name) === nom).length;
+  const en = typeof NOMBRES_EN_CARTA !== 'undefined' ? NOMBRES_EN_CARTA : {};
+  // misma carta, mismo nombre, o mismo nombre en inglés (tu "Investigación de Profesores" = "Professor's Research")
+  return col.filter((c) => c.id === cm.id || sinTildes(c.name) === nom || (en[c.id] && sinTildes(en[c.id]) === nom)).length;
 }
 
 function analizarMazo(m, col) {
@@ -39,6 +41,7 @@ function analizarMazo(m, col) {
 
 async function pintarMazos() {
   const mazos = leerMazos(); const col = leer('coleccion', []); const tasas = await getTasas();
+  if (mazos.length && typeof cargarNombresEn === 'function') await cargarNombresEn(col).catch(() => {});
   const cont = $('#lista-mazos');
   if (!mazos.length) { cont.innerHTML = '<div class="vacio">Aún no tienes mazos.<br>Crea uno o importa una lista de Pokémon TCG Live.</div>'; return; }
   cont.innerHTML = mazos.map((m) => {

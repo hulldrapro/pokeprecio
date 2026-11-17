@@ -3,6 +3,12 @@
 La versión se define en `package.json` → el workflow la pone en el APK (`CardCalc-vX.Y.Z.apk`) y en Android (`versionName`).
 Se ve en la app al final de **Colección**. Regla: cada APK nuevo sube la versión y se anota aquí.
 
+## v2.7.0 — 2026-11-16 · 🤖 Mazos automáticos y plantillas
+- **🤖 Armar con mis cartas**: revisa tu colección, arma las líneas evolutivas completas (básico → fase 1 → fase 2, aunque sean de tipos distintos, como Charmander → Charizard ex), prioriza ex/V y las más valiosas, agrega tus entrenadores y calcula la energía según los costos de ataque. Tipo principal automático o elegido, formato Libre/Estándar/Expandido. El mazo queda editable.
+- **📚 Plantillas**: Charizard ex, Gardevoir ex, Dragapult ex y Pikachu ex (listas de referencia del meta 2024–2025). Se comparan con tu colección: qué tienes, qué te falta y cuánto cuesta completarla; la legalidad de hoy la verifica TCGdex.
+- «Tienes» ahora reconoce tus cartas en español frente a listas en inglés («Investigación de Profesores» = «Professor's Research»).
+- Se mantiene armar mazos a mano e importar listas de TCG Live.
+
 ## v2.6.1 — 2026-11-16
 - Tema **solo manual**: 🌙 Oscuro o ☀️ Claro en Ajustes. Se quitó "Automático": la app ya no cambia sola con el modo del celular. Quien tenía "Automático" queda en Oscuro.
 
