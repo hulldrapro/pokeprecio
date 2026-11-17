@@ -3,6 +3,23 @@
 La versión se define en `package.json` → el workflow la pone en el APK (`CardCalc-vX.Y.Z.apk`) y en Android (`versionName`).
 Se ve en la app al final de **Colección**. Regla: cada APK nuevo sube la versión y se anota aquí.
 
+## v2.6.0 — 2026-11-16 · 🃏 Mazos, alertas, widget y más
+**Coleccionistas y jugadores**
+- Nueva pestaña **🃏 Mazos**: armar mazos, ver cuáles cartas tienes y cuáles te faltan, **costo para completarlo**, legalidad **Estándar / Expandido** (de TCGdex), avisos (60 cartas, máx. 4 copias), pasar faltantes a Deseos.
+- **Importar / exportar listas de Pokémon TCG Live** («4 Pikachu ex SSP 57», energías «Basic {L} Energy»).
+- **Varias fotos de la galería** a la vez (se procesan en lote).
+- **🔎 Búsqueda avanzada**: nombre, tipo, categoría, rareza, ilustrador y rango de precio, ordenada de la más barata a la más cara.
+
+**Precios y ventas**
+- **Alertas en el celular** (en segundo plano cada ~6 h, aunque la app esté cerrada): cuando un deseo llega a tu precio y, si quieres, cuando una carta de tu colección sube o baja más de un %.
+- **TCGplayer vs Cardmarket** en cada carta: dónde está más barata y por cuánto.
+- **Calculadora de venta real**: comisión % y envío → cuánto te queda en la mano (modo venta y lotes).
+
+**Comodidad**
+- **Tema claro / oscuro / automático.**
+- **Copia de seguridad automática semanal** (Documentos) y recordatorio de exportar.
+- **Widget** de pantalla de inicio con el valor de tu colección.
+
 ## v2.5.0 — 2026-11-16 · 🏅 Cartas calificadas
 - En "Mi carta": **calificación** con PSA, BGS (Beckett, incl. Black Label y Pristine), CGC (incl. Pristine), TAG y ACE, nota del 1 al 10.
 - **Valor estimado aproximado** con multiplicadores típicos sobre el precio sin calificar (PSA 10 ≈ ×3, PSA 9 ≈ ×1.5, PSA 7 ≈ ×0.9…). No existe una fuente gratuita de precios de cartas calificadas: por eso se marca como estimado.

@@ -16,6 +16,19 @@ async function pintarAjustes() {
   $$('#aj-fuente button').forEach((b) => b.classList.toggle('sel', b.dataset.v === fuente));
   $('#aj-horas').value = String(leer('horasAuto', HORAS_AUTO));
   $('#aj-pct').value = leer('ventaPct', 80); $('#aj-pct-txt').textContent = `${leer('ventaPct', 80)}%`;
+  // calculadora de venta (el envío se guarda en US$ y se muestra en tu moneda)
+  $('#aj-comision').value = leer('comision', 0) || '';
+  $('#aj-envio').value = leer('envioUSD', 0) ? +(leer('envioUSD', 0) * tasas.COP).toFixed(MON().dec) : '';
+  $('#aj-envio').placeholder = `envío (${MONEDA})`;
+  // alertas
+  $('#aj-notif').checked = leer('notifOn', false);
+  $('#aj-mov').value = leer('movPct', 0); $('#aj-mov-txt').textContent = `${leer('movPct', 0)}%`;
+  // apariencia
+  $$('#aj-tema button').forEach((b) => b.classList.toggle('sel', b.dataset.v === leer('tema', 'oscuro')));
+  // copia automática
+  $('#aj-backup-auto').checked = leer('backupAuto', true);
+  const fb = leer('backupAutoFecha', 0), fe = leer('ultimoExport', 0);
+  $('#aj-backup-info').textContent = `Última copia automática: ${fb ? new Date(fb).toLocaleDateString(LOCALE()) : 'aún no'} · última exportación: ${fe ? new Date(fe).toLocaleDateString(LOCALE()) : 'aún no'}`;
   // escaneo
   $('#aj-autoguardar').checked = $('#auto-guardar').checked;
   $('#aj-autoscan').checked = autoOn;
@@ -51,6 +64,20 @@ $('#aj-pct').addEventListener('change', (e) => { guardar('ventaPct', +e.target.v
 $('#aj-autoguardar').addEventListener('change', (e) => { $('#auto-guardar').checked = e.target.checked; guardar('autoGuardar', e.target.checked); });
 $('#aj-autoscan').addEventListener('change', (e) => { autoOn = e.target.checked; guardar('autoScan', autoOn); firmaUltima = null; pintarAuto(); });
 $('#aj-vibrar').addEventListener('change', (e) => { guardar('vibrar', e.target.checked); if (e.target.checked && navigator.vibrate) navigator.vibrate(35); });
+
+$('#aj-comision').addEventListener('change', (e) => { guardar('comision', Math.min(50, Math.max(0, parseFloat(e.target.value) || 0))); pintarSesion(); });
+$('#aj-envio').addEventListener('change', async (e) => { const t = await getTasas(); guardar('envioUSD', Math.max(0, parseFloat(e.target.value) || 0) / t.COP); pintarSesion(); });
+$('#aj-notif').addEventListener('change', async (e) => {
+  if (e.target.checked && !(await pedirPermisoNotif())) { e.target.checked = false; alert('Para recibir alertas, permite las notificaciones de CardCalc en los ajustes del celular.'); }
+  guardar('notifOn', e.target.checked); sincronizarAlertas();
+});
+$('#aj-mov').addEventListener('input', (e) => { $('#aj-mov-txt').textContent = `${e.target.value}%`; });
+$('#aj-mov').addEventListener('change', (e) => { guardar('movPct', +e.target.value); sincronizarAlertas(); });
+$$('#aj-tema button').forEach((b) => b.addEventListener('click', () => {
+  guardar('tema', b.dataset.v); aplicarTema();
+  $$('#aj-tema button').forEach((x) => x.classList.toggle('sel', x === b));
+}));
+$('#aj-backup-auto').addEventListener('change', (e) => { guardar('backupAuto', e.target.checked); if (e.target.checked) { guardar('backupAutoFecha', 0); copiaAutomatica().then(pintarAjustes); } });
 
 $('#aj-cache').addEventListener('click', () => {
   const borrar = [];

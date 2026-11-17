@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">CardCalc</string>
     <string name="title_activity_main">CardCalc</string>
+    <string name="widget_nombre">Valor de mi colección (CardCalc)</string>
     <string name="package_name">com.hulldrapro.pokeprecio</string>
     <string name="custom_url_scheme">com.hulldrapro.pokeprecio</string>
 </resources>

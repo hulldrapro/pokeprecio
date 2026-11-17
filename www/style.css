@@ -14,6 +14,29 @@
   --radio: 16px;
   --sombra: 0 8px 30px rgba(0, 0, 0, .35);
 }
+/* tema claro (⚙️ Ajustes → Apariencia) */
+:root[data-theme="claro"] {
+  --fondo: #f4f5f9;
+  --panel: #ffffff;
+  --panel-2: #eef0f6;
+  --borde: #dde1ea;
+  --texto: #171a23;
+  --suave: #5f677a;
+  --acento: #f5b800;
+  --acento-2: #ff8f00;
+  --acento-texto: #1c1500;
+  --azul: #2f6fe4;
+  --verde: #12945e;
+  --rojo: #d93a4c;
+  --sombra: 0 6px 22px rgba(20, 30, 60, .10);
+}
+:root[data-theme="claro"] .barra, :root[data-theme="claro"] .tabbar { background: rgba(244, 245, 249, .94); }
+:root[data-theme="claro"] .resumen { background: linear-gradient(135deg, #ffffff, #f0f2fa); }
+:root[data-theme="claro"] .visor { background: #20232d; }
+:root[data-theme="claro"] .tab span { filter: grayscale(1) brightness(.6); }
+:root[data-theme="claro"] .tab.activo span { filter: none; }
+:root[data-theme="claro"] .chip-rareza { background: rgba(245, 184, 0, .14); color: #8a6400; border-color: rgba(245, 184, 0, .45); }
+:root[data-theme="claro"] .chip-ok, :root[data-theme="claro"] .copias { color: #8a6400; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
 html, body { margin: 0; background: var(--fondo); color: var(--texto); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
@@ -317,6 +340,36 @@ body.con-resultados .visor { max-height: 40vh; }
 .gradeo-valor { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 203, 5, .08); border: 1px solid rgba(255, 203, 5, .3); display: flex; flex-direction: column; gap: 4px; }
 .gradeo-valor .chip-grado { align-self: flex-start; font-size: .85rem; padding: 3px 10px; }
 .enlaces-ventas a { font-size: .82rem; }
+
+/* ---------- tanda 4: búsqueda avanzada, comparar, mazos ---------- */
+.btn.ancho { width: 100%; margin: 0 0 10px; }
+.campo select, .campo .filtro-modal { width: 100%; margin-top: 0; }
+.comparar { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--borde); border-radius: 12px; background: var(--panel-2); display: flex; flex-direction: column; gap: 4px; }
+.comparar-fila { display: flex; justify-content: space-between; font-size: .9rem; }
+.lista-mazos { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.mazo-item { display: flex; gap: 12px; align-items: center; text-align: left; background: var(--panel); border: 1px solid var(--borde); border-radius: 14px; padding: 10px; }
+.mazo-item img { width: 62px; border-radius: 6px; }
+.mazo-vacio { width: 62px; height: 86px; display: grid; place-items: center; font-size: 1.8rem; background: var(--panel-2); border-radius: 6px; }
+.mazo-item .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.legalidad { display: flex; gap: 6px; margin-top: 4px; }
+.legalidad span { font-size: .7rem; font-weight: 800; padding: 2px 8px; border-radius: 999px; }
+.legalidad .ok { background: rgba(62, 207, 142, .15); color: var(--verde); }
+.legalidad .no { background: rgba(255, 92, 108, .12); color: var(--rojo); }
+.nombre-mazo { width: 100%; font-size: 1.25rem; font-weight: 800; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--borde); background: var(--panel-2); color: var(--texto); }
+.mazo-resumen { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 8px; text-align: center; }
+.mazo-resumen > div { background: var(--panel-2); border-radius: 12px; padding: 8px 4px; display: flex; flex-direction: column; }
+.mazo-resumen b { font-size: 1.05rem; }
+.problemas { margin: 8px 0; padding-left: 0; list-style: none; color: var(--rojo); font-size: .85rem; }
+.lista-mazo { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.lista-mazo li { display: flex; align-items: center; gap: 10px; background: var(--panel-2); border-radius: 10px; padding: 6px; }
+.lista-mazo img { width: 40px; border-radius: 4px; }
+.lista-mazo .info { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: .85rem; }
+.lista-mazo .info b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cantidad-mazo { display: flex; align-items: center; gap: 6px; }
+.cantidad-mazo button { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--borde); background: var(--panel); font-weight: 900; }
+.cantidad-mazo b { min-width: 18px; text-align: center; }
+.area-texto { width: 100%; margin-top: 8px; padding: 10px; border-radius: 10px; border: 1px solid var(--borde); background: var(--panel-2); color: var(--texto); font: .85rem ui-monospace, monospace; }
+.tab span { font-size: 1.15rem; }
 
 /* ---------- ajustes ---------- */
 .barra-der { display: flex; align-items: center; gap: 10px; }

@@ -25,8 +25,9 @@ function leer(clave, def) { try { const v = localStorage.getItem(clave); return 
 function guardar(clave, v) {
   try { localStorage.setItem(clave, JSON.stringify(v)); } catch { /* sin espacio */ }
   if (CLAVES_NATIVAS.includes(clave)) espejoNativo(v, clave);
+  if (clave === 'coleccion' && typeof programarWidget === 'function') programarWidget(); // el widget siempre al día
 }
-const CLAVES_NATIVAS = ['coleccion', 'deseos', 'cambio'];
+const CLAVES_NATIVAS = ['coleccion', 'deseos', 'cambio', 'mazos', 'alertas', 'widget']; // las dos últimas las lee Android (alertas en segundo plano y widget)
 
 /* La colección también se guarda en el almacenamiento nativo de Android (Preferences), que no se borra
    al actualizar la app. Al abrir, si el WebView perdió sus datos, se recupera de ahí. */
@@ -52,8 +53,9 @@ async function restaurarColeccion() {
 /* Copia de seguridad en archivo */
 async function exportarColeccion() {
   const col = leer('coleccion', []);
-  const json = JSON.stringify({ app: 'CardCalc', version: 2, fecha: new Date().toISOString(), coleccion: col, deseos: leer('deseos', []) }, null, 1);
+  const json = JSON.stringify({ app: 'CardCalc', version: 2, fecha: new Date().toISOString(), coleccion: col, deseos: leer('deseos', []), mazos: leer('mazos', []) }, null, 1);
   const nombre = `CardCalc-coleccion-${new Date().toISOString().slice(0, 10)}.json`;
+  guardar('ultimoExport', Date.now());
   const FS = nativo && window.Capacitor.Plugins.Filesystem;
   if (FS) {
     try {
@@ -76,6 +78,7 @@ function importarColeccion(ev) {
       const col = leer('coleccion', []); const uids = new Set(col.map((c) => c.uid));
       const agregar = nuevas.filter((c) => c && c.id && c.uid && !uids.has(c.uid));
       guardar('coleccion', [...col, ...agregar]);
+      if (Array.isArray(d.mazos)) { const ms = leer('mazos', []); const ids = new Set(ms.map((x) => x.id)); guardar('mazos', [...ms, ...d.mazos.filter((x) => x && x.id && !ids.has(x.id))]); }
       if (Array.isArray(d.deseos)) {
         const des = leer('deseos', []); const ks = new Set(des.map((x) => x.key));
         guardar('deseos', [...des, ...d.deseos.filter((x) => x && x.key && !ks.has(x.key))]);
@@ -287,6 +290,7 @@ function irA(vista) {
     if (vista === 'coleccion') pintarColeccion();
     else if (vista === 'intercambio') pintarIntercambio();
     else if (vista === 'deseos') pintarDeseos();
+    else if (vista === 'mazos') pintarMazos();
   }
   window.scrollTo(0, 0);
 }
@@ -396,7 +400,7 @@ async function pintarSesion(nueva) {
   const total = sesion.reduce((s, e) => s + (e.p.usd || 0), 0);
   const pct = leer('ventaPct', 80);
   $('#sesion-total').textContent = `${sesion.length} carta${sesion.length === 1 ? '' : 's'} · ${fmtUSD(total)} · ${fmtCOP(total * tasas.COP)}`;
-  $('#sesion-venta').textContent = `Valor del lote: ${fmtCOP(total * tasas.COP)} · vendiéndolo al ${pct}%: ${fmtCOP(total * tasas.COP * pct / 100)}`;
+  $('#sesion-venta').textContent = `Valor del lote: ${fmtCOP(total * tasas.COP)} · vendiéndolo al ${pct}%: ${fmtCOP(total * tasas.COP * pct / 100)}${typeof hayCalcVenta === 'function' && hayCalcVenta() ? ` · ${textoNeto(total * pct / 100, tasas)}` : ''}`;
   $('#lista-sesion').innerHTML = sesion.map((e, i) => `
     <li class="${e === nueva ? 'nueva' : ''}" data-i="${i}">
       <img src="${esc(imgCarta(e.carta))}" alt="" data-ver>
@@ -691,6 +695,7 @@ function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
       <tr><td>Normal</td><td>${fmtEUR(cm.trend)}</td><td>${fmtEUR(cm.avg30)}</td><td>${cm.trend != null ? fmtCOP(cm.trend / tasas.EUR * tasas.COP) : '—'}</td></tr>
       ${cm['trend-holo'] ? `<tr><td>Holo / reverse</td><td>${fmtEUR(cm['trend-holo'])}</td><td>${fmtEUR(cm['avg30-holo'])}</td><td>${fmtCOP(cm['trend-holo'] / tasas.EUR * tasas.COP)}</td></tr>` : ''}
     </tbody></table>` : ''}
+    ${typeof bloqueComparar === 'function' ? bloqueComparar(carta, tasas) : ''}
     ${item ? `<p class="titulo-sec">Historial de precio</p><div class="historia">${graficoHistoria(item.historial)}</div>` : ''}
     ${item ? seccionMiCarta(item) : ''}
     ${item && item.copias > 1 ? `<p class="copias">Tienes <b>${item.copias} copias</b> de esta carta (con este estado)</p>` : ''}
@@ -910,6 +915,7 @@ function cerrarModal() {
   if ($('#vista-coleccion').classList.contains('activa')) pintarColeccion();
   else if ($('#vista-intercambio').classList.contains('activa')) pintarIntercambio();
   else if ($('#vista-deseos').classList.contains('activa')) pintarDeseos();
+  else if ($('#vista-mazos').classList.contains('activa')) pintarMazos();
 }
 
 let actualizando = false;
@@ -942,6 +948,7 @@ async function actualizarPrecios(manual = false) {
       return c;
     }));
     if (ok || !col.length) guardar('ultimaActualizacion', ahora);
+    if (typeof actualizarWidget === 'function') actualizarWidget();
     if (manual && col.length && !ok) alert('No se pudo actualizar: revisa tu conexión.');
   } finally {
     actualizando = false;

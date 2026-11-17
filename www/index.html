@@ -45,6 +45,7 @@
           <input id="txt-buscar" type="search" placeholder="O escribe: 43 94 · 043094 · Milcery" autocomplete="off" enterkeyhint="search">
           <button type="submit" class="btn secundario">Buscar</button>
         </form>
+        <button class="btn secundario chico ancho" id="btn-busqueda-avanzada">🔎 Búsqueda avanzada (tipo, rareza, ilustrador, precio)</button>
         <label class="interruptor auto"><input type="checkbox" id="auto-guardar"><span></span>Guardar automáticamente en mi colección cada carta que reconozca</label>
       </div>
 
@@ -86,7 +87,7 @@
       </div>
 
       <input id="input-foto" type="file" accept="image/*" capture="environment" hidden>
-      <input id="input-galeria" type="file" accept="image/*" hidden>
+      <input id="input-galeria" type="file" accept="image/*" multiple hidden>
     </section>
 
     <!-- ================= COLECCIÓN ================= -->
@@ -163,6 +164,29 @@
           </select></div>
         <div class="campo"><span>% de venta por defecto (modo venta y lotes): <b id="aj-pct-txt"></b></span>
           <input type="range" id="aj-pct" min="40" max="100" step="5"></div>
+        <div class="campo"><span>Calculadora de venta: comisión (%) y envío</span>
+          <div class="fila-input">
+            <input type="number" inputmode="decimal" min="0" max="50" id="aj-comision" placeholder="% comisión">
+            <input type="number" inputmode="decimal" min="0" id="aj-envio" placeholder="envío">
+          </div>
+          <span class="meta">Ej.: Mercado Libre ≈ 13–17 %. Con esto la app te dice cuánto te queda en la mano al vender.</span></div>
+      </div>
+
+      <div class="ajuste-grupo">
+        <p class="titulo-sec">🔔 Alertas</p>
+        <label class="interruptor fila-aj"><input type="checkbox" id="aj-notif"><span></span>Avisarme en el celular cuando un deseo llegue a mi precio (se revisa cada ~6 h, aunque la app esté cerrada)</label>
+        <div class="campo"><span>Avisar también si una carta de mi colección sube o baja más de: <b id="aj-mov-txt"></b></span>
+          <input type="range" id="aj-mov" min="0" max="50" step="5"></div>
+        <span class="meta">0 % = no avisar por cambios de la colección.</span>
+      </div>
+
+      <div class="ajuste-grupo">
+        <p class="titulo-sec">🎨 Apariencia</p>
+        <div class="segmento" id="aj-tema">
+          <button data-v="oscuro">🌙 Oscuro</button>
+          <button data-v="claro">☀️ Claro</button>
+          <button data-v="auto">⚙️ Automático</button>
+        </div>
       </div>
 
       <div class="ajuste-grupo">
@@ -175,6 +199,8 @@
       <div class="ajuste-grupo respaldo">
         <p class="titulo-sec">💾 Copia de seguridad</p>
         <p class="meta">Guarda tu colección y tus deseos en un archivo (Documentos) para pasarlos a otro celular o por si acaso.</p>
+        <label class="interruptor fila-aj"><input type="checkbox" id="aj-backup-auto"><span></span>Copia automática cada semana (en Documentos)</label>
+        <p class="meta" id="aj-backup-info"></p>
         <div class="botones">
           <button id="btn-exportar">⤓ Exportar</button>
           <button id="btn-importar">⤒ Importar</button>
@@ -227,6 +253,18 @@
       <p class="nota">Tip: también puedes mandar cartas al intercambio desde el escáner con «⇄ La doy» / «⇄ La recibo». Al hacer el cambio, las que das salen de tu colección y las que recibes entran.</p>
     </section>
 
+    <!-- ================= MAZOS ================= -->
+    <section id="vista-mazos" class="vista">
+      <div class="resumen">
+        <div class="meta">🃏 Tus mazos: qué cartas tienes, cuáles te faltan y cuánto cuesta completarlos</div>
+        <div class="botones">
+          <button class="guardar" id="btn-nuevo-mazo">＋ Nuevo mazo</button>
+          <button id="btn-importar-mazo">📋 Importar lista (TCG Live)</button>
+        </div>
+      </div>
+      <div id="lista-mazos" class="lista-mazos"></div>
+    </section>
+
     <!-- ================= DESEOS ================= -->
     <section id="vista-deseos" class="vista">
       <div class="resumen" id="deseos-resumen"></div>
@@ -242,6 +280,7 @@
     <button class="tab activo" data-vista="escanear"><span>📷</span>Escanear</button>
     <button class="tab" data-vista="coleccion"><span>🗂️</span>Colección</button>
     <button class="tab" data-vista="intercambio"><span>⇄</span>Intercambio</button>
+    <button class="tab" data-vista="mazos"><span>🃏</span>Mazos</button>
     <button class="tab" data-vista="deseos"><span>♡</span>Deseos<i class="punto-tab" id="punto-deseos" hidden></i></button>
   </nav>
 
@@ -261,6 +300,8 @@
   <script src="extras.js"></script>
   <script src="extras2.js"></script>
   <script src="gradeo.js"></script>
+  <script src="mazos.js"></script>
+  <script src="extras3.js"></script>
   <script src="ajustes.js"></script>
 </body>
 </html>

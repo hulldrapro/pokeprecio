@@ -1,6 +1,6 @@
 {
   "name": "pokeprecio",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Foto de carta Pokemon -> precio en USD y COP",
   "scripts": {
     "build": "node scripts/copy-libs.js"
@@ -15,6 +15,7 @@
     "@capacitor/camera": "^8.2.6",
     "@capacitor/core": "^8.6.2",
     "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/local-notifications": "^8.3.1",
     "@capacitor/preferences": "^8.0.1",
     "@capacitor/share": "^8.0.3",
     "tesseract.js": "^7.0.0"

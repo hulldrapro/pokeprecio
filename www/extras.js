@@ -234,6 +234,7 @@ async function actualizarDeseos() {
   const antes = marcarDeseosAlcanzados(tasas);
   guardar('deseos', leer('deseos', []).map((d) => (nuevos.has(d.key) && nuevos.get(d.key) != null ? { ...d, usd: nuevos.get(d.key) } : d)));
   const despues = marcarDeseosAlcanzados(tasas);
+  if (despues > antes) notificar('🎯 CardCalc', `🎯 ${despues} carta${despues === 1 ? '' : 's'} de tus deseos ya ${despues === 1 ? 'está' : 'están'} a tu precio`);
   if (despues > antes) avisar(`🎯 ${despues} carta${despues === 1 ? '' : 's'} de tus deseos ya ${despues === 1 ? 'está' : 'están'} a tu precio`);
   if ($('#vista-deseos').classList.contains('activa')) pintarDeseos();
 }

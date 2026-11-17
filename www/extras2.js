@@ -211,7 +211,7 @@ async function pintarVenta() {
       <div class="meta">💸 Modo venta: ¿a qué % del precio de mercado vendes?</div>
       <div class="fila"><input type="range" id="venta-pct" min="40" max="100" step="5" value="${pct}"><b class="pct-grande" id="venta-pct-txt">${pct}%</b></div>
       <label class="interruptor"><input type="checkbox" id="venta-solo" ${soloVender ? 'checked' : ''}><span></span>Solo la carpeta «Para vender»</label>
-      <div class="venta-total">${sel.length ? `<b>${sel.reduce((s, g) => s + g.n, 0)} carta(s)</b> · mercado ${fmtCOP(mercadoCOP)} → <b class="sube">vendes en ${fmtCOP(mercadoCOP * pct / 100)}</b>` : '<span class="meta">Marca las cartas que quieres vender</span>'}</div>
+      <div class="venta-total">${sel.length ? `<b>${sel.reduce((s, g) => s + g.n, 0)} carta(s)</b> · mercado ${fmtCOP(mercadoCOP)} → <b class="sube">vendes en ${fmtCOP(mercadoCOP * pct / 100)}</b>${hayCalcVenta() ? `<br><span class="meta">${textoNeto(mercadoCOP / tasas.COP * pct / 100, tasas)}</span>` : ''}` : '<span class="meta">Marca las cartas que quieres vender</span>'}</div>
       <div class="botones">
         <button id="venta-todas">${sel.length === lista.length && lista.length ? 'Quitar todas' : 'Marcar todas'}</button>
         <button class="guardar" id="venta-compartir" ${sel.length ? '' : 'disabled'}>📤 Compartir lista</button>
