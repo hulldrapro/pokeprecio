@@ -103,6 +103,9 @@
     'Intercambio': 'Trade', 'Mis repetidas': 'My duplicates', 'Cartas en venta': 'Cards for sale', 'Lote de cartas': 'Card batch',
     'Nombre de la carpeta nueva (ej. "Charizards", "Para regalar"):': 'New folder name (e.g. "Charizards", "Gifts"):', 'el archivo no es una copia de CardCalc': 'the file is not a CardCalc backup',
     'No pude leer el número': 'I couldn’t read the number',
+    // cartas calificadas
+    'Calificación (gradeo)': 'Grading', 'Sin calificar': 'Ungraded', '🏅 Calificadas': '🏅 Graded', 'Nota': 'Grade', 'opcional': 'optional',
+    '🔎 Ventas reales en eBay': '🔎 Real sales on eBay', '📈 PriceCharting': '📈 PriceCharting', '🏅 BGS (Beckett)': '🏅 BGS (Beckett)',
   };
 
   const ESTADO = { Nueva: 'Near Mint', 'Casi nueva': 'Lightly Played', Jugada: 'Moderately Played', 'Muy jugada': 'Heavily Played', Dañada: 'Damaged' };
@@ -200,6 +203,11 @@
     [/^📤 Doy \((.+)\):$/, '📤 I give ($1):'], [/^📥 Recibo \((.+)\):$/, '📥 I get ($1):'], [/^Diferencia: (.+)$/, 'Difference: $1'],
     [/^Total: (.+)$/, 'Total: $1'], [/^Al (\d+)%: (.+)$/, 'At $1%: $2'],
     [/^(• .+) c\/u$/, '$1 each'],
+    // cartas calificadas
+    [/^Estimado aproximado:$/, 'Rough estimate:'], [/^Precio real:$/, 'Real price:'],
+    [/^Estimado: (.+) \(×([\d.]+) del precio sin calificar\)$/, 'Estimate: $1 (×$2 the ungraded price)'],
+    [/^×([\d.]+) del precio sin calificar \((.+)\)\. Es una guía: cada carta se vende distinto\.$/, '×$1 the ungraded price ($2). It’s a guide: every card sells differently.'],
+    [/^Precio real de esta carta calificada \(si lo sabes, en (\w+)\)$/, (m, p) => `Real price of this graded card (if you know it, in ${PLURAL[p] || p})`],
     // al final: el genérico (los específicos de arriba ganan)
     [/^(\d+) cartas? · (.+)$/, (m, n, r) => `${n} ${cartas(n)} · ${r}`],
   ];

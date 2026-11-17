@@ -3,6 +3,13 @@
 La versión se define en `package.json` → el workflow la pone en el APK (`CardCalc-vX.Y.Z.apk`) y en Android (`versionName`).
 Se ve en la app al final de **Colección**. Regla: cada APK nuevo sube la versión y se anota aquí.
 
+## v2.5.0 — 2026-11-16 · 🏅 Cartas calificadas
+- En "Mi carta": **calificación** con PSA, BGS (Beckett, incl. Black Label y Pristine), CGC (incl. Pristine), TAG y ACE, nota del 1 al 10.
+- **Valor estimado aproximado** con multiplicadores típicos sobre el precio sin calificar (PSA 10 ≈ ×3, PSA 9 ≈ ×1.5, PSA 7 ≈ ×0.9…). No existe una fuente gratuita de precios de cartas calificadas: por eso se marca como estimado.
+- **Precio real** opcional (si lo conoces) que reemplaza el estimado.
+- Enlaces a **ventas reales en eBay (vendidas)** y **PriceCharting** para esa carta y esa nota.
+- Insignia dorada "PSA 10" en la colección, filtro **🏅 Calificadas**, y el valor calificado cuenta en el total, Stats, Venta e imagen para compartir. En cartas calificadas no aplica el estado (NM/LP…).
+
 ## v2.4.0 — 2026-11-16 · 🗣️ Idioma de la app
 - **Idioma de la app: Español / English** (⚙️ Ajustes → 🗣️ Idioma de la app). La primera vez se elige solo según el idioma del celular.
 - Se traduce toda la interfaz: pantallas, botones, mensajes emergentes, lo que se comparte por WhatsApp, la imagen de la colección y las fechas. Los nombres de cartas y sets no se traducen.

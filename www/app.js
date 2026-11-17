@@ -766,7 +766,7 @@ function badgeCambio(pct) {
 const filtro = { texto: '', orden: leer('orden', 'caras'), set: '', grupo: 0, tipo: '', idioma: '', carpeta: '' };
 let modoColeccion = 'cartas'; // 'cartas' | 'sets' (progreso por set)
 // copias "iguales" = misma carta, misma variante y mismo idioma
-const claveCopia = (c) => `${c.id}|${c.variante || ''}|${c.idioma || 'es'}|${c.estado || 'NM'}`;
+const claveCopia = (c) => `${c.id}|${c.variante || ''}|${c.idioma || 'es'}|${c.gradeo ? `${c.gradeo.empresa} ${c.gradeo.nota}` : c.estado || 'NM'}`;
 /* Estado de la carta → % del precio de mercado (guía habitual de TCGplayer) */
 const ESTADOS = {
   NM: { nombre: 'Nueva', corto: 'NM', f: 1 },
@@ -776,7 +776,8 @@ const ESTADOS = {
   DMG: { nombre: 'Dañada', corto: 'DMG', f: 0.35 },
 };
 const factorEstado = (c) => (ESTADOS[c.estado] || ESTADOS.NM).f;
-const valorUSD = (c) => (c.usd || 0) * factorEstado(c); // lo que vale TU copia según su estado
+// lo que vale TU copia: calificada (PSA…) → precio real o estimado; si no, según su estado (NM/LP…)
+const valorUSD = (c) => (c.gradeo ? valorGradeoUSD(c) : (c.usd || 0) * factorEstado(c));
 const CARPETAS_BASE = ['Favoritas', 'Para jugar', 'Para vender'];
 const carpetasUsadas = (col) => [...new Set([...CARPETAS_BASE, ...col.map((c) => c.carpeta).filter(Boolean)])];
 // tipos de las cartas japonesas → nombre en español, para filtrar todo junto
@@ -828,8 +829,9 @@ async function pintarColeccion() {
   $('#lista-coleccion').className = 'rejilla';
   // carpetas (solo si usas alguna)
   const carpetas = [...new Set(col.map((c) => c.carpeta).filter(Boolean))];
-  $('#col-carpeta').hidden = !carpetas.length;
-  $('#col-carpeta').innerHTML = [['', '📁 Todas las carpetas'], ...carpetas.map((n) => [n, `📁 ${n}`])]
+  const hayGrad = col.some((c) => c.gradeo);
+  $('#col-carpeta').hidden = !carpetas.length && !hayGrad;
+  $('#col-carpeta').innerHTML = [['', '📁 Todas las carpetas'], ...(hayGrad ? [['__grad', '🏅 Calificadas']] : []), ...carpetas.map((n) => [n, `📁 ${n}`])]
     .map(([v, n]) => `<button data-c="${esc(v)}" class="${v === filtro.carpeta ? 'sel' : ''}">${esc(n)}</button>`).join('');
   $$('#col-carpeta button').forEach((b) => b.addEventListener('click', () => { filtro.carpeta = b.dataset.c; pintarColeccion(); }));
 
@@ -858,7 +860,7 @@ async function pintarColeccion() {
     (!filtro.set || (c.setId || c.set) === filtro.set) &&
     (!filtro.tipo || tiposDe(c).includes(filtro.tipo)) &&
     (!filtro.idioma || (c.idioma || 'es') === filtro.idioma) &&
-    (!filtro.carpeta || c.carpeta === filtro.carpeta) &&
+    (!filtro.carpeta || (filtro.carpeta === '__grad' ? !!c.gradeo : c.carpeta === filtro.carpeta)) &&
     (filtro.grupo === 0 || (nivelRareza(c.rarity) >= gMin && nivelRareza(c.rarity) <= gMax)));
   // ordenar
   const ord = {
@@ -889,7 +891,7 @@ async function pintarColeccion() {
         <span class="idioma-chip" title="${esc(IDIOMAS[c.idioma || 'es'].nombre)}">${bandera(c.idioma)} ${IDIOMAS[c.idioma || 'es'].corto}</span>
       </div>
       <div class="n">${esc(c.name)}</div>
-      <div class="s">${c.estado && c.estado !== 'NM' ? `<span class="chip-estado">${esc(c.estado)}</span> ` : ''}${esc(c.rarity || nombreSet(c))} · ${esc(c.num)}</div>
+      <div class="s">${c.gradeo ? `<span class="chip-grado">${esc(etiquetaGradeo(c.gradeo))}</span> ` : c.estado && c.estado !== 'NM' ? `<span class="chip-estado">${esc(c.estado)}</span> ` : ''}${esc(c.rarity || nombreSet(c))} · ${esc(c.num)}</div>
       <div class="v"><b>${fmtUSD(valorUSD(c))}${n > 1 ? '<small> c/u</small>' : ''}</b>${badgeCambio(cambioPct(c))}</div>
       <div class="s">${c.usd != null ? fmtCOP(valorUSD(c) * n * tasas.COP) + (n > 1 ? ` las ${n}` : '') : ''}</div>
     </button>`).join('');

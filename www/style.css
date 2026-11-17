@@ -311,6 +311,13 @@ body.con-resultados .visor { max-height: 40vh; }
 .lista-venta li.vacio { display: block; text-align: center; cursor: default; }
 .botones .peligro:disabled, .botones .guardar:disabled { opacity: .45; }
 
+/* ---------- cartas calificadas ---------- */
+.chip-grado { display: inline-block; padding: 1px 7px; border-radius: 6px; background: linear-gradient(135deg, #ffe066, #ffb300); color: #2b1a00; font-weight: 900; font-size: .7rem; letter-spacing: .3px; }
+.gradeo-detalle .campo select { width: 100%; }
+.gradeo-valor { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 203, 5, .08); border: 1px solid rgba(255, 203, 5, .3); display: flex; flex-direction: column; gap: 4px; }
+.gradeo-valor .chip-grado { align-self: flex-start; font-size: .85rem; padding: 3px 10px; }
+.enlaces-ventas a { font-size: .82rem; }
+
 /* ---------- ajustes ---------- */
 .barra-der { display: flex; align-items: center; gap: 10px; }
 .btn-ajustes { width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--borde); background: var(--panel); font-size: 1.15rem; }

@@ -13,6 +13,7 @@ function seccionMiCarta(item) {
       <div class="chips envolver">${Object.entries(ESTADOS).map(([k, e]) => `<button data-estado="${k}" class="${est === k ? 'sel' : ''}">${e.corto} · ${e.nombre}</button>`).join('')}</div>
     </div>
     <div class="valor-estado" id="valor-estado"></div>
+    ${seccionGradeo(item)}
     <div class="campo"><span>Lo que pagaste</span>
       <div class="fila-input"><input type="number" inputmode="numeric" min="0" id="compra-cop" placeholder="en ${esc(MON().plural)} (${MONEDA})" value="${item.compraUSD ? +(item.compraUSD * (leer('tasas', null)?.d?.rates?.[MONEDA] || 1)).toFixed(MON().dec) : ''}"><span id="ganancia" class="meta"></span></div>
     </div>
@@ -27,8 +28,8 @@ function conectarMiCarta(destino, item, tasas, getP) {
   const pintar = () => {
     const c = it(); const usd = getP().usd;
     const e = ESTADOS[c.estado || 'NM'];
-    const valor = usd != null ? usd * e.f : null;
-    $('#valor-estado', destino).innerHTML = valor != null
+    const valor = usd != null ? (c.gradeo ? valorGradeoUSD({ ...c, usd }) : usd * e.f) : null;
+    $('#valor-estado', destino).innerHTML = c.gradeo ? '' : valor != null
       ? `Tu copia (${e.nombre}${e.f < 1 ? `, ${Math.round(e.f * 100)}% del mercado` : ''}): <b>${fmtUSD(valor)}</b> · ${fmtCOP(valor * tasas.COP)}` : '';
     const g = $('#ganancia', destino);
     if (c.compraUSD > 0 && valor != null) {
@@ -61,6 +62,7 @@ function conectarMiCarta(destino, item, tasas, getP) {
     elegir(n);
   });
   pintar();
+  conectarGradeo(destino, item, tasas, getP, pintar); // PSA / BGS / CGC…
 }
 
 /* ================= tooltip (gráficos) ================= */
@@ -221,7 +223,7 @@ async function pintarVenta() {
         <span class="check">${ventaSel.has(g.k) ? '✓' : ''}</span>
         <img src="${esc(imgCarta(g.c))}" alt="">
         <div class="info"><b>${esc(g.c.name)}${g.n > 1 ? ` ×${g.n}` : ''}</b>
-          <span class="meta">${bandera(g.c.idioma)} ${esc(nombreSet(g.c))} · ${esc(ESTADOS[g.c.estado || 'NM'].corto)}</span>
+          <span class="meta">${bandera(g.c.idioma)} ${esc(nombreSet(g.c))} · ${esc((g.c.gradeo ? etiquetaGradeo(g.c.gradeo) : ESTADOS[g.c.estado || 'NM'].corto))}</span>
           <span class="meta">Mercado ${fmtCOP(valorUSD(g.c) * tasas.COP)} c/u</span></div>
         <div class="valor"><b>${fmtCOP(valorUSD(g.c) * tasas.COP * pct / 100)}</b><br><span class="meta">a ${pct}%</span></div>
       </li>`).join('') : '<li class="vacio">No hay cartas para vender.</li>'}</ul>`;
@@ -231,7 +233,7 @@ async function pintarVenta() {
   $('#venta-todas').addEventListener('click', () => { if (sel.length === lista.length) ventaSel.clear(); else lista.forEach((g) => ventaSel.add(g.k)); pintarVenta(); });
   $$('.lista-venta li[data-k]').forEach((li) => li.addEventListener('click', () => { const k = li.dataset.k; if (ventaSel.has(k)) ventaSel.delete(k); else ventaSel.add(k); pintarVenta(); }));
   $('#venta-compartir').addEventListener('click', () => {
-    const texto = `💸 Vendo estas cartas (CardCalc)\n\n${sel.map((g) => `• ${g.c.name}${g.n > 1 ? ` ×${g.n}` : ''} ${bandera(g.c.idioma)} (${nombreSet(g.c)} ${g.c.num || g.c.localId}, ${ESTADOS[g.c.estado || 'NM'].corto}) — ${fmtCOP(valorUSD(g.c) * tasas.COP * pct / 100)}${g.n > 1 ? ' c/u' : ''}`).join('\n')}\n\nTotal: ${fmtCOP(mercadoCOP * pct / 100)}\n¿Te interesa alguna? 😄`;
+    const texto = `💸 Vendo estas cartas (CardCalc)\n\n${sel.map((g) => `• ${g.c.name}${g.n > 1 ? ` ×${g.n}` : ''} ${bandera(g.c.idioma)} (${nombreSet(g.c)} ${g.c.num || g.c.localId}, ${(g.c.gradeo ? etiquetaGradeo(g.c.gradeo) : ESTADOS[g.c.estado || 'NM'].corto)}) — ${fmtCOP(valorUSD(g.c) * tasas.COP * pct / 100)}${g.n > 1 ? ' c/u' : ''}`).join('\n')}\n\nTotal: ${fmtCOP(mercadoCOP * pct / 100)}\n¿Te interesa alguna? 😄`;
     compartirTexto('Cartas en venta', texto);
   });
   $('#venta-vendidas').addEventListener('click', () => {
