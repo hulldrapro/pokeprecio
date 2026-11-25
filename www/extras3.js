@@ -133,7 +133,7 @@ function aplicarTema() {
   if (leer('tema', 'oscuro') !== 'claro' && leer('tema', 'oscuro') !== 'oscuro') guardar('tema', 'oscuro'); // quitaba "automático"
   const claro = leer('tema', 'oscuro') === 'claro';
   document.documentElement.dataset.theme = claro ? 'claro' : 'oscuro';
-  const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = claro ? '#f4f5f9' : '#0f1117';
+  const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = claro ? '#eef1fa' : '#000244';
 }
 aplicarTema();
 

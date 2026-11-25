@@ -651,6 +651,7 @@ async function abrirCarta(c, destino, item = null, opts = {}) {
       precioRapido(carta, p, tasas);
       entrada = registrarEscaneo(carta, p, opts.elegida);
     } else if (opts.soloVer) entrada = sesion.find((e) => e.carta.id === carta.id) || null;
+    carta._foto = opts.escaneo && imgActual ? imgActual.src : null; // la foto recién escaneada sirve para pre-calificar
     pintarCarta(carta, tasas, destino, item, entrada);
   } catch (e) {
     destino.innerHTML = `<div class="carta estado error">No se pudo consultar la carta (${esc(e.message)}). Revisa tu conexión.</div>`;
@@ -690,7 +691,9 @@ function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
   destino.innerHTML = `
   <div class="carta">
     <div class="carta-top">
-      <img class="carta-img" src="${esc(imgCarta(carta, 'high'))}" alt="${esc(carta.name)}">
+      <div class="holo-wrap"><div class="holo entra ${nivelRareza(carta.rarity || '') >= 4 || /holo/i.test(variante || '') ? 'brilla' : ''}">
+        <img class="carta-img" src="${esc(imgCarta(carta, 'high'))}" alt="${esc(carta.name)}"><i class="foil"></i><i class="reflejo"></i><i class="barrido-carta"></i>
+      </div></div>
       <div style="min-width:0">
         <h2>${esc(carta.name)}</h2>
         <div class="meta">
@@ -709,6 +712,7 @@ function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
       <button data-acc="deseo">♡ La quiero</button>
       <button data-acc="doy">⇄ La doy</button>
       ${item ? '' : '<button data-acc="recibo">⇄ La recibo</button>'}
+      ${typeof conectarPrecal === 'function' ? '<button data-acc="precal">📐 Pre-calificar</button>' : ''}
     </div>
     ${vs.length > 1 ? `<div class="variantes">${vs.map((v) => `<button data-v="${esc(v.clave)}">${esc(v.nombre)} · ${fmtUSD(v.market ?? v.mid)}</button>`).join('')}</div>` : ''}
     ${vs.length ? `<table><thead><tr><th>TCGplayer</th><th>Mercado</th><th>Mínimo</th><th>En ${esc(MON().plural)}</th></tr></thead><tbody>
@@ -717,6 +721,7 @@ function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
       <tr><td>Normal</td><td>${fmtEUR(cm.trend)}</td><td>${fmtEUR(cm.avg30)}</td><td>${cm.trend != null ? fmtCOP(cm.trend / tasas.EUR * tasas.COP) : '—'}</td></tr>
       ${cm['trend-holo'] ? `<tr><td>Holo / reverse</td><td>${fmtEUR(cm['trend-holo'])}</td><td>${fmtEUR(cm['avg30-holo'])}</td><td>${fmtCOP(cm['trend-holo'] / tasas.EUR * tasas.COP)}</td></tr>` : ''}
     </tbody></table>` : ''}
+    ${typeof bloqueTendencia === 'function' ? bloqueTendencia(carta, tasas) : ''}
     ${typeof bloqueComparar === 'function' ? bloqueComparar(carta, tasas) : ''}
     ${item ? `<p class="titulo-sec">Historial de precio</p><div class="historia">${graficoHistoria(item.historial)}</div>` : ''}
     ${item ? seccionMiCarta(item) : ''}
@@ -744,6 +749,7 @@ function pintarCarta(carta, tasas, destino, item = null, entrada = null) {
     if (entrada) { entrada.uidCol = uid; entrada.p = p; pintarSesion(); }
   });
   if (item) conectarMiCarta(destino, item, tasas, () => p);
+  if (typeof conectarPrecal === 'function') conectarPrecal(destino, carta, tasas, () => p, carta._foto || null);
   // ♡ deseos y ⇄ intercambio desde cualquier ficha
   const bD = $('[data-acc="deseo"]', destino);
   if (bD) bD.addEventListener('click', async () => { if (await agregarDeseo(carta)) { bD.textContent = '♥ En tus deseos'; bD.disabled = true; } });

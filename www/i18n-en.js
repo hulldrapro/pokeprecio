@@ -273,5 +273,37 @@
     // al final: el genérico (los específicos de arriba ganan)
     [/^(\d+) cartas? · (.+)$/, (m, n, r) => `${n} ${cartas(n)} · ${r}`],
   ];
+  // v2.8.0: diseño nuevo, pre-calificación PSA y tendencia
+  Object.assign(E, {
+    'Reducir animaciones (ahorra batería)': 'Reduce animations (saves battery)',
+    '📐 Pre-calificar': '📐 Pre-grade', '📐 Pre-calificación tipo PSA': '📐 PSA-style pre-grading',
+    'Toma una foto de frente, sin funda, sobre un fondo oscuro y liso, con luz pareja y sin reflejos. Mide el centrado y revisa esquinas, bordes y superficie.':
+      'Take a straight-on photo, out of the sleeve, on a plain dark background, with even light and no glare. It measures centering and checks corners, edges and surface.',
+    'Usar la foto que escaneé': 'Use the photo I scanned', '📷 Tomar foto': '📷 Take photo', '🖼️ Galería': '🖼️ Gallery',
+    'Midiendo la carta': 'Measuring the card',
+    'Candidata a gem mint.': 'Gem mint candidate.', 'Buen estado.': 'Good condition.', 'Estado para colección o juego.': 'Fine for collecting or playing.', 'Desgaste claro.': 'Clear wear.',
+    'Lo que más baja la nota:': 'What lowers the grade most:',
+    'Centrado': 'Centering', 'Esquinas': 'Corners', 'Bordes': 'Edges', 'Superficie': 'Surface',
+    'Centrado medido:': 'Measured centering:', '(PSA 10 pide 55/45 o mejor)': '(PSA 10 needs 55/45 or better)',
+    'No encontré un borde parejo (foto inclinada, con reflejo o borde muy gastado): el centrado no se pudo medir y no baja la nota.': 'I couldn’t find an even border (tilted photo, glare or very worn edge): centering couldn’t be measured and doesn’t lower the grade.',
+    '⚠️ No distinguí bien la carta del fondo. Para medir mejor, ponla sobre algo oscuro y liso.': '⚠️ I couldn’t separate the card from the background well. For a better reading, put it on something plain and dark.',
+    '¿Compensa calificarla?': 'Is grading worth it?', 'Sí compensa': 'Worth it', 'No compensa': 'Not worth it',
+    'y te quedarían': 'and you’d keep', 'más que sin calificar, ya restado el costo.': 'more than ungraded, after the cost.',
+    '; sumando el costo de calificar perderías': '; adding the grading cost you’d lose',
+    'Es una estimación orientativa hecha en tu celular, no el dictamen de PSA: ellos revisan la carta física con lupa y luz rasante. Los valores calificados usan multiplicadores típicos del mercado.':
+      'It’s a rough estimate made on your phone, not PSA’s verdict: they inspect the physical card with a loupe and raking light. Graded values use typical market multipliers.',
+    '📷 Otra foto': '📷 Another photo', 'Toca para cerrar': 'Tap to close',
+    '📈 Tendencia del mercado': '📈 Market trend', '▲ Subiendo': '▲ Rising', '▼ Bajando': '▼ Falling', '● Estable': '● Stable',
+    'Prom. 30 días': '30-day avg.', 'Prom. 7 días': '7-day avg.', 'Último día': 'Last day',
+  });
+  P.unshift(
+    [/^izq\/der (.+)$/, 'left/right $1'], [/^arr\/abj (.+)$/, 'top/bottom $1'],
+    [/^Si saca PSA (\d+)$/, 'If it gets PSA $1'],
+    [/^: con PSA ([\d.]+) valdría unos$/, ': at PSA $1 it would be worth about'],
+    [/^Costo de calificar \(servicio \+ envío, en (\S+)\)$/, (m, p) => `Grading cost (service + shipping, in ${PLURAL[p] || p})`],
+    [/^No pude medir la foto: (.*)$/, 'I couldn’t measure the photo: $1'],
+    [/^([+−])(\d+)% frente al promedio de 30 días en Cardmarket \(Europa\)\. Muestra hacia dónde se está moviendo el precio; no garantiza lo que pase después\.$/,
+      '$1$2% vs. the 30-day average on Cardmarket (Europe). It shows where the price is heading; it doesn’t guarantee what happens next.'],
+  );
   registrarTraducciones(E, P);
 })();

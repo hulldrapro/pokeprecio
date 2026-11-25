@@ -14,7 +14,7 @@ const MODULOS = [
 ].find((p) => p && fs.existsSync(path.join(p, 'tesseract.js')));
 if (!MODULOS) { console.error('Falta tesseract.js: ejecuta "Ver en PC.bat" para instalarlo.'); process.exit(1); }
 
-const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.wasm': 'application/wasm', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
+const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.wasm': 'application/wasm', '.png': 'image/png', '.svg': 'image/svg+xml', '.woff2': 'font/woff2','.webmanifest': 'application/manifest+json' };
 
 function resolver(url) {
   const p = decodeURIComponent(url.split('?')[0]);

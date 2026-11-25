@@ -3,6 +3,31 @@
 La versión se define en `package.json` → el workflow la pone en el APK (`CardCalc-vX.Y.Z.apk`) y en Android (`versionName`).
 Se ve en la app al final de **Colección**. Regla: cada APK nuevo sube la versión y se anota aquí.
 
+## v2.8.0 — 2026-11-25 · ✨ Diseño nuevo, pre-calificación PSA y tendencia
+Ideas tomadas de **PokéVision Pi** (miniproyecto 3, repo caesar-dat-com/pokevision-pi).
+
+**Diseño**
+- Paleta azul profundo con acento lima y dorado para rarezas, en oscuro y en claro.
+- Tipografías Sofia Sans Condensed y Saira incluidas en la app, así funcionan sin internet.
+- Barra inferior flotante con íconos nuevos y una píldora que se desliza a la pestaña activa.
+- Fondo con aurora de luz y chispas que suben despacio. Se pausan con la cámara abierta.
+- La carta entra girando, se inclina y brilla al pasarle el dedo (efecto holo en las raras) y al tocarla se abre en grande.
+- Barrido láser sobre el visor mientras lee la carta.
+- Los precios y el total de la colección cuentan hasta su valor.
+- Las tarjetas de la colección entran escalonadas.
+- Nuevo ajuste **Reducir animaciones (ahorra batería)** en Apariencia. También se respeta la opción de accesibilidad del celular.
+
+**📐 Pre-calificar (tipo PSA)**, en cada carta:
+- Con la foto que escaneaste o con una nueva (cámara o galería), mide el **centrado** con geometría (izq/der y arr/abj, criterio de PSA: 55/45 → 10, 60/40 → 9…) y revisa **esquinas, bordes y superficie**.
+- Nota estimada con la regla de PSA: el peor aspecto manda.
+- **¿Compensa calificarla?**: valor si saca PSA 10/9/8 y cuánto ganas o pierdes con tu nota, ya restado el costo de calificar (editable, ~US$25).
+- Funciona con borde amarillo y plateado (Escarlata y Púrpura). PokéVision solo medía el amarillo.
+- Todo se calcula en el celular. Es orientativo, no reemplaza a PSA.
+
+**📈 Tendencia del mercado**, en cada carta:
+- Promedio de 30 días, de 7 días y del último día en Cardmarket, con una gráfica pequeña y la etiqueta Subiendo / Bajando / Estable.
+- No se copió la predicción a 30/90/180 días de PokéVision: su modelo apenas le gana a «predecir que no cambia» (MAE 0.176 contra 0.179), así que mostrarla como pronóstico sería engañoso.
+
 ## v2.7.1 — 2026-11-16 · ⚡ Energías básicas
 - Botón **⚡ Añadir energías básicas** (en Escanear): eliges tipo y cantidad (atajos 4/8/12) y se agregan todas de una vez.
 - Al escanear, si la carta dice «Energía»/«Energy» (o no se reconoce), se ofrece el selector con el **tipo adivinado por el color** del símbolo.
